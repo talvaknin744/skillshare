@@ -2,6 +2,7 @@ package install
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -77,6 +78,22 @@ func wrapGitError(stderr string, err error, tokenAuthAttempted bool) error {
 	}
 	if s != "" {
 		return fmt.Errorf("%s", s)
+	}
+	// When stderr is empty, extract exit code for a more actionable message
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		code := exitErr.ExitCode()
+		switch code {
+		case 128:
+			if tokenAuthAttempted {
+				return fmt.Errorf("git failed (exit 128): authentication token was rejected — check permissions and expiry")
+			}
+			return fmt.Errorf("git failed (exit 128): repository not found or authentication required")
+		case 1:
+			return fmt.Errorf("git failed (exit 1): command error — check network connectivity and repository URL")
+		default:
+			return fmt.Errorf("git failed (exit %d)", code)
+		}
 	}
 	return err
 }
