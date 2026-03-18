@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.17.6] - 2026-03-19
+
+### Bug Fixes
+
+- **Sync auto-creates missing target directories with notification** — v0.17.5 introduced a strict check that blocked sync when a target directory didn't exist (e.g., `~/.claude/skills` on a fresh Claude Code install). This prevented first-time users from syncing without manually creating directories ([#87](https://github.com/runkids/skillshare/issues/87)). Sync now auto-creates missing directories and shows what it did:
+  ```
+  ✓ claude: merged (99 linked, 0 local, 0 updated, 0 pruned)
+  ℹ   Created target directory: ~/.claude/skills
+  ```
+  Dry-run mode previews which directories would be created without actually creating them
+- **`skillshare init` creates target directories** — when `init` detects an installed CLI tool (e.g., `~/.claude/` exists) but the skills subdirectory is missing, it now creates it automatically instead of leaving it as "not initialized"
+
+### Web UI
+
+- **Sync Preview shows directory creation** — the Config → Preview Sync modal and the Sync page now display a "directory created" or "directory will be created" badge per target when a target directory is auto-created
+- **Sync Preview stays open after sync** — the Config → Preview Sync → Sync Now flow now shows sync results in the modal with a "Sync Complete" banner instead of immediately closing. This gives you time to review what changed before dismissing
+
 ## [0.17.5] - 2026-03-18
 
 ### New Features

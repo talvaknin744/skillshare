@@ -34,11 +34,12 @@ func ignorePayload(stats *skillignore.IgnoreStats) map[string]any {
 }
 
 type syncTargetResult struct {
-	Target  string   `json:"target"`
-	Linked  []string `json:"linked"`
-	Updated []string `json:"updated"`
-	Skipped []string `json:"skipped"`
-	Pruned  []string `json:"pruned"`
+	Target     string   `json:"target"`
+	Linked     []string `json:"linked"`
+	Updated    []string `json:"updated"`
+	Skipped    []string `json:"skipped"`
+	Pruned     []string `json:"pruned"`
+	DirCreated string   `json:"dir_created,omitempty"`
 }
 
 func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
@@ -113,6 +114,7 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 			res.Linked = mergeResult.Linked
 			res.Updated = mergeResult.Updated
 			res.Skipped = mergeResult.Skipped
+			res.DirCreated = mergeResult.DirCreated
 
 			pruneResult, err := ssync.PruneOrphanLinksWithSkills(ssync.PruneOptions{
 				TargetPath: target.Path, SourcePath: s.cfg.Source, Skills: allSkills,
@@ -133,6 +135,7 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 			res.Linked = copyResult.Copied
 			res.Updated = copyResult.Updated
 			res.Skipped = copyResult.Skipped
+			res.DirCreated = copyResult.DirCreated
 
 			pruneResult, err := ssync.PruneOrphanCopiesWithSkills(target.Path, allSkills, target.Include, target.Exclude, name, body.DryRun)
 			if err == nil {

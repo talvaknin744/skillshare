@@ -16,6 +16,7 @@ import (
 // are written. Defaults to stdout. Set to io.Discard for silent operation (e.g. JSON mode).
 var DiagOutput io.Writer = os.Stdout
 
+
 // DiscoveredSkill represents a skill found during recursive source directory scan.
 type DiscoveredSkill struct {
 	SourcePath string   // Full path: ~/.config/skillshare/skills/_team/frontend/ui
@@ -366,9 +367,10 @@ func copyFile(src, dst string) error {
 
 // MergeResult holds the result of a merge sync operation
 type MergeResult struct {
-	Linked  []string // Skills that were symlinked
-	Skipped []string // Skills that already exist in target (kept local)
-	Updated []string // Skills that had broken symlinks fixed
+	Linked     []string // Skills that were symlinked
+	Skipped    []string // Skills that already exist in target (kept local)
+	Updated    []string // Skills that had broken symlinks fixed
+	DirCreated string   // Non-empty if target directory was auto-created (or would be in dry-run)
 }
 
 // isSymlinkToSource checks whether targetPath is a symlink pointing to sourcePath.
@@ -395,38 +397,49 @@ func isSymlinkToSource(targetPath, sourcePath string) bool {
 // ensureRealTargetDir handles symlink→merge/copy conversion and verifies the
 // target directory exists. Returns an error if the directory is missing or
 // inaccessible (never auto-creates to catch typos).
-func ensureRealTargetDir(targetPath, sourcePath, modeName string, dryRun bool) error {
-	info, err := os.Lstat(targetPath)
-	if err == nil && info != nil && utils.IsSymlinkOrJunction(targetPath) {
+// ensureRealTargetDir handles symlink→merge/copy conversion and auto-creates
+// missing target directories. Returns (true, nil) when a directory was created
+// (or would be in dry-run), (false, nil) when it already existed.
+func ensureRealTargetDir(targetPath, sourcePath, modeName string, dryRun bool) (created bool, err error) {
+	info, lstatErr := os.Lstat(targetPath)
+	if lstatErr == nil && info != nil && utils.IsSymlinkOrJunction(targetPath) {
 		if isSymlinkToSource(targetPath, sourcePath) {
 			if dryRun {
 				fmt.Fprintf(DiagOutput, "[dry-run] Would convert from symlink mode to %s mode: %s\n", modeName, targetPath)
-				return nil // dry-run: skip existence check
+				return false, nil
 			}
 			if err := os.Remove(targetPath); err != nil {
-				return fmt.Errorf("failed to remove symlink for %s conversion: %w", modeName, err)
+				return false, fmt.Errorf("failed to remove symlink for %s conversion: %w", modeName, err)
 			}
 			if err := os.MkdirAll(targetPath, 0755); err != nil {
-				return fmt.Errorf("failed to create target directory after symlink conversion: %w", err)
+				return false, fmt.Errorf("failed to create target directory after symlink conversion: %w", err)
 			}
-			return nil // converted — directory exists
+			return false, nil // converted — directory exists
 		}
 		// else: target is an external symlink (dotfiles manager, etc.) — keep it
 	}
 
-	// Verify target directory exists (never auto-create — fail fast on typos).
-	// Check even during dry-run so users catch path errors early.
+	// Auto-create target directory if missing, with a visible notification.
+	// This handles fresh CLI installs (e.g., ~/.claude/ exists but skills/ doesn't)
+	// and built-in targets like universal (~/.agents/skills) where the entire
+	// path tree may not exist yet.
 	fi, statErr := os.Stat(targetPath)
 	if statErr != nil {
 		if os.IsNotExist(statErr) {
-			return fmt.Errorf("target directory does not exist: %s", targetPath)
+			if dryRun {
+				return true, nil
+			}
+			if err := os.MkdirAll(targetPath, 0755); err != nil {
+				return false, fmt.Errorf("failed to create target directory: %w", err)
+			}
+			return true, nil
 		}
-		return fmt.Errorf("cannot access target directory: %w", statErr)
+		return false, fmt.Errorf("cannot access target directory: %w", statErr)
 	}
 	if !fi.IsDir() {
-		return fmt.Errorf("target path is not a directory: %s", targetPath)
+		return false, fmt.Errorf("target path is not a directory: %s", targetPath)
 	}
-	return nil
+	return false, nil
 }
 
 // SyncTargetMerge performs merge mode sync - creates symlinks for each skill individually
@@ -447,9 +460,16 @@ func SyncTargetMerge(name string, target config.TargetConfig, sourcePath string,
 func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkills []DiscoveredSkill, sourcePath string, dryRun, force bool) (*MergeResult, error) {
 	result := &MergeResult{}
 
-	// Convert from symlink mode if needed, then verify target dir exists.
-	if err := ensureRealTargetDir(target.Path, sourcePath, "merge", dryRun); err != nil {
+	// Convert from symlink mode if needed, auto-create if missing.
+	dirCreated, err := ensureRealTargetDir(target.Path, sourcePath, "merge", dryRun)
+	if err != nil {
 		return nil, err
+	}
+	if dirCreated {
+		result.DirCreated = target.Path
+		if dryRun {
+			return result, nil // dry-run: dir would be created, skip link details
+		}
 	}
 
 	// Filter skills for this target

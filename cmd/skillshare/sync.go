@@ -511,6 +511,10 @@ func reportMergeResult(name string, target config.TargetConfig, result *sync.Mer
 			ui.Warning("  %s", warn)
 		}
 	}
+
+	if result.DirCreated != "" {
+		ui.Info("  Created target directory: %s", result.DirCreated)
+	}
 }
 
 func syncCopyMode(name string, target config.TargetConfig, source string, dryRun, force bool) error {
@@ -605,6 +609,10 @@ func reportCopyResult(name string, target config.TargetConfig, result *sync.Copy
 		for _, warn := range pruneResult.Warnings {
 			ui.Warning("  %s", warn)
 		}
+	}
+
+	if result.DirCreated != "" {
+		ui.Info("  Created target directory: %s", result.DirCreated)
 	}
 }
 

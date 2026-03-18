@@ -635,14 +635,21 @@ func detectCLIDirectories(home string) []detectedDir {
 			// Skills directory doesn't exist - check if parent exists (CLI installed)
 			parent := filepath.Dir(target.Path)
 			if _, err := os.Stat(parent); err == nil {
+				// Auto-create the skills directory since the CLI is installed
+				created := os.Mkdir(target.Path, 0755) == nil
+				if created {
+					ui.Info("Created target directory: %s", target.Path)
+				}
 				detected = append(detected, detectedDir{
-					name:       name,
-					path:       target.Path,
-					skillCount: 0,
-					hasSkills:  false,
-					exists:     false,
+					name:   name,
+					path:   target.Path,
+					exists: created,
 				})
-				ui.Info("Found: %-12s %s (not initialized)", name, target.Path)
+				label := "not initialized"
+				if created {
+					label = "initialized"
+				}
+				ui.Info("Found: %-12s %s (%s)", name, target.Path, label)
 			}
 		}
 	}

@@ -15,9 +15,10 @@ import (
 
 // CopyResult holds the result of a copy sync operation.
 type CopyResult struct {
-	Copied  []string // newly copied skills
-	Skipped []string // checksum unchanged, skipped
-	Updated []string // checksum changed, overwritten
+	Copied     []string // newly copied skills
+	Skipped    []string // checksum unchanged, skipped
+	Updated    []string // checksum changed, overwritten
+	DirCreated string   // Non-empty if target directory was auto-created (or would be in dry-run)
 }
 
 // SyncTargetCopy performs copy mode sync — copies each skill individually
@@ -36,9 +37,16 @@ func SyncTargetCopy(name string, target config.TargetConfig, sourcePath string, 
 func SyncTargetCopyWithSkills(name string, target config.TargetConfig, allSkills []DiscoveredSkill, sourcePath string, dryRun, force bool, onProgress func(current, total int, skill string)) (*CopyResult, error) {
 	result := &CopyResult{}
 
-	// Convert from symlink mode if needed, then verify target dir exists.
-	if err := ensureRealTargetDir(target.Path, sourcePath, "copy", dryRun); err != nil {
+	// Convert from symlink mode if needed, auto-create if missing.
+	dirCreated, err := ensureRealTargetDir(target.Path, sourcePath, "copy", dryRun)
+	if err != nil {
 		return nil, err
+	}
+	if dirCreated {
+		result.DirCreated = target.Path
+		if dryRun {
+			return result, nil // dry-run: dir would be created, skip copy details
+		}
 	}
 
 	// Filter skills for this target

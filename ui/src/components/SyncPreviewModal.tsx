@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 
 import type { SyncResult } from '../api/client';
 
 import { api } from '../api/client';
-import { formatSyncToast, invalidateAfterSync } from '../lib/sync';
-import { useToast } from './Toast';
+import { invalidateAfterSync } from '../lib/sync';
 import Button from './Button';
 import Card from './Card';
 import DialogShell from './DialogShell';
@@ -19,11 +18,11 @@ interface SyncPreviewModalProps {
 }
 
 export default function SyncPreviewModal({ open, onClose }: SyncPreviewModalProps) {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [synced, setSynced] = useState(false);
   const [results, setResults] = useState<SyncResult[] | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -47,9 +46,9 @@ export default function SyncPreviewModal({ open, onClose }: SyncPreviewModalProp
     setSyncing(true);
     try {
       const res = await api.sync({ dryRun: false });
-      toast(formatSyncToast(res.results), 'success');
+      setResults(res.results);
+      setSynced(true);
       invalidateAfterSync(queryClient);
-      onClose();
     } catch (e: unknown) {
       setError((e as Error).message);
     } finally {
@@ -62,6 +61,7 @@ export default function SyncPreviewModal({ open, onClose }: SyncPreviewModalProp
     setResults(null);
     setError(null);
     setWarnings([]);
+    setSynced(false);
     if (open) {
       runDryRun();
     }
@@ -83,8 +83,8 @@ export default function SyncPreviewModal({ open, onClose }: SyncPreviewModalProp
       <Card>
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-pencil">Sync Preview</h2>
-            {results !== null && !loading && (
+            <h2 className="text-lg font-bold text-pencil">{synced ? 'Sync Complete' : 'Sync Preview'}</h2>
+            {results !== null && !loading && !synced && (
               <button
                 onClick={runDryRun}
                 className="text-pencil-light hover:text-pencil transition-colors"
@@ -94,6 +94,13 @@ export default function SyncPreviewModal({ open, onClose }: SyncPreviewModalProp
               </button>
             )}
           </div>
+
+          {synced && (
+            <div className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/5 px-3 py-2 text-sm font-medium text-success">
+              <CheckCircle size={16} className="shrink-0" />
+              Sync completed successfully.
+            </div>
+          )}
 
           {warnings.length > 0 && (
             <div className="flex items-start gap-2 rounded-lg border border-warning bg-warning-light px-3 py-2 text-sm text-pencil">
@@ -137,13 +144,21 @@ export default function SyncPreviewModal({ open, onClose }: SyncPreviewModalProp
           )}
 
           <div className="flex justify-end gap-3 pt-2">
-            <Button variant="secondary" onClick={onClose} disabled={syncing}>
-              Cancel
-            </Button>
-            {!allUpToDate && !noTargets && results && !error && (
-              <Button onClick={handleSync} loading={syncing}>
-                Sync Now
+            {synced ? (
+              <Button variant="primary" onClick={onClose}>
+                Close
               </Button>
+            ) : (
+              <>
+                <Button variant="secondary" onClick={onClose} disabled={syncing}>
+                  Cancel
+                </Button>
+                {!allUpToDate && !noTargets && results && !error && (
+                  <Button onClick={handleSync} loading={syncing}>
+                    Sync Now
+                  </Button>
+                )}
+              </>
             )}
           </div>
         </div>

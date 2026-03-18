@@ -95,9 +95,8 @@ func ValidateProjectConfig(cfg *ProjectConfig, projectRoot string) (warnings []s
 	return warnings, nil
 }
 
-// validateTargetPath checks a single target's path exists and is a directory.
-// Any missing target path is a hard error regardless of sync mode —
-// we never auto-create directories to avoid silent typo-induced mistakes.
+// validateTargetPath checks a single target's path is accessible and is a directory.
+// Missing paths are accepted — sync will auto-create them with a visible notification.
 func validateTargetPath(name, expandedPath string) []string {
 	if expandedPath == "" {
 		return nil // path resolved by target registry; skip filesystem check
@@ -106,7 +105,7 @@ func validateTargetPath(name, expandedPath string) []string {
 	info, statErr := os.Stat(expandedPath)
 	if statErr != nil {
 		if os.IsNotExist(statErr) {
-			return []string{fmt.Sprintf("target %q: path does not exist: %s", name, expandedPath)}
+			return nil // sync will auto-create and notify
 		}
 		return []string{fmt.Sprintf("target %q: cannot access path: %v", name, statErr)}
 	}

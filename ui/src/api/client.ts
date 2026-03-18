@@ -529,6 +529,7 @@ export interface SyncResult {
   updated: string[];
   skipped: string[];
   pruned: string[];
+  dir_created?: string;
 }
 
 export interface IgnoreSources {

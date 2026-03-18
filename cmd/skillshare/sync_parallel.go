@@ -217,7 +217,7 @@ func collectMergeSyncResult(r *syncTargetResult, name string, target config.Targ
 
 	r.stats = mergeStats(result, pruneResult)
 
-	// Build message (same logic as reportMergeResult)
+	// Build message
 	linkedCount := len(result.Linked)
 	updatedCount := len(result.Updated)
 	skippedCount := len(result.Skipped)
@@ -234,6 +234,10 @@ func collectMergeSyncResult(r *syncTargetResult, name string, target config.Targ
 		r.message = fmt.Sprintf("merged (%d local skills preserved)", skippedCount)
 	} else {
 		r.message = "merged (no skills)"
+	}
+
+	if result.DirCreated != "" {
+		r.infos = append(r.infos, fmt.Sprintf("Created target directory: %s", result.DirCreated))
 	}
 
 	if pruneResult != nil {
@@ -261,7 +265,7 @@ func collectCopySyncResult(r *syncTargetResult, name string, target config.Targe
 
 	r.stats = copyStats(result, pruneResult)
 
-	// Build message (same logic as reportCopyResult)
+	// Build message
 	copiedCount := len(result.Copied)
 	updatedCount := len(result.Updated)
 	skippedCount := len(result.Skipped)
@@ -277,6 +281,10 @@ func collectCopySyncResult(r *syncTargetResult, name string, target config.Targe
 		r.message = fmt.Sprintf("copied (%d skipped, up to date)", skippedCount)
 	} else {
 		r.message = "copied (no skills)"
+	}
+
+	if result.DirCreated != "" {
+		r.infos = append(r.infos, fmt.Sprintf("Created target directory: %s", result.DirCreated))
 	}
 
 	if pruneResult != nil {

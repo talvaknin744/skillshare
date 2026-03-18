@@ -88,8 +88,9 @@ func TestValidateConfig_InvalidTargetMode(t *testing.T) {
 	}
 }
 
-func TestValidateConfig_TargetNotExist_MergeMode(t *testing.T) {
+func TestValidateConfig_TargetNotExist_Accepted(t *testing.T) {
 	tmpDir := t.TempDir()
+	// Missing target path is accepted — sync will auto-create and notify
 	cfg := &Config{
 		Source: tmpDir,
 		Targets: map[string]TargetConfig{
@@ -97,33 +98,14 @@ func TestValidateConfig_TargetNotExist_MergeMode(t *testing.T) {
 		},
 	}
 	_, err := ValidateConfig(cfg)
-	if err == nil {
-		t.Fatal("expected error for nonexistent target with merge mode")
-	}
-	if !strings.Contains(err.Error(), "path does not exist") {
-		t.Errorf("unexpected error: %v", err)
+	if err != nil {
+		t.Fatalf("expected no error for missing target (sync auto-creates), got: %v", err)
 	}
 }
 
-func TestValidateConfig_TargetNotExist_CopyMode_Error(t *testing.T) {
+func TestValidateConfig_TargetDeepPathNotExist_Accepted(t *testing.T) {
 	tmpDir := t.TempDir()
-	cfg := &Config{
-		Source: tmpDir,
-		Targets: map[string]TargetConfig{
-			"test": {Path: filepath.Join(tmpDir, "nonexistent"), Mode: "copy"},
-		},
-	}
-	_, err := ValidateConfig(cfg)
-	if err == nil {
-		t.Fatal("expected error for nonexistent target with copy mode")
-	}
-	if !strings.Contains(err.Error(), "path does not exist") {
-		t.Errorf("unexpected error: %v", err)
-	}
-}
-
-func TestValidateConfig_TargetParentNotExist_Error(t *testing.T) {
-	tmpDir := t.TempDir()
+	// Even deeply missing paths are accepted (e.g., universal target ~/.agents/skills)
 	cfg := &Config{
 		Source: tmpDir,
 		Targets: map[string]TargetConfig{
@@ -131,11 +113,8 @@ func TestValidateConfig_TargetParentNotExist_Error(t *testing.T) {
 		},
 	}
 	_, err := ValidateConfig(cfg)
-	if err == nil {
-		t.Fatal("expected error when parent directory is missing")
-	}
-	if !strings.Contains(err.Error(), "path does not exist") {
-		t.Errorf("unexpected error: %v", err)
+	if err != nil {
+		t.Fatalf("expected no error for deeply missing target (sync auto-creates), got: %v", err)
 	}
 }
 
