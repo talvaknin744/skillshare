@@ -171,9 +171,9 @@ const SkillPostit = memo(function SkillPostit({
   const colorIdx = hashToIndex(colorKey, SKILL_PASTELS.length);
 
   return (
-    <Link to={`/skills/${encodeURIComponent(skill.flatName)}`} className="w-full">
+    <Link to={`/skills/${encodeURIComponent(skill.flatName)}`} className="w-full h-full">
       <div
-        className="ss-card ss-skill-card relative p-5 pb-4 bg-surface cursor-pointer border border-muted shadow-sm rounded-[var(--radius-md)] transition-all duration-150 hover:shadow-hover hover:border-muted-dark"
+        className="ss-card ss-skill-card relative p-5 pb-4 bg-surface cursor-pointer border border-muted shadow-sm rounded-[var(--radius-md)] transition-all duration-150 hover:shadow-hover hover:border-muted-dark h-full flex flex-col"
         style={{
           '--skill-pastel': SKILL_PASTELS[colorIdx],
           '--skill-pastel-dark': SKILL_PASTELS_DARK[colorIdx],

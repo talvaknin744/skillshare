@@ -30,12 +30,23 @@ export function useTheme() {
   return useContext(ThemeContext);
 }
 
-/** Read ?theme= URL param and persist to localStorage (runs once on load). */
+/** Read ?theme= URL param and persist to localStorage (runs once on load).
+ *  Values: 'dark' | 'clean' | 'playful' | 'light'
+ *  'clean' implies light mode + clean style; 'playful' implies light mode + playful style. */
 function applyUrlThemeParam(): void {
   const p = new URLSearchParams(window.location.search).get('theme')?.toLowerCase();
   if (!p) return;
-  if (p === 'dark' || p === 'light') localStorage.setItem('skillshare-theme-preference', p);
-  if (p === 'playful' || p === 'clean') localStorage.setItem('skillshare-style', p);
+  if (p === 'dark') {
+    localStorage.setItem('skillshare-theme-preference', 'dark');
+  } else if (p === 'clean') {
+    localStorage.setItem('skillshare-theme-preference', 'light');
+    localStorage.setItem('skillshare-style', 'clean');
+  } else if (p === 'playful') {
+    localStorage.setItem('skillshare-theme-preference', 'light');
+    localStorage.setItem('skillshare-style', 'playful');
+  } else if (p === 'light') {
+    localStorage.setItem('skillshare-theme-preference', 'light');
+  }
 }
 applyUrlThemeParam();
 
@@ -142,6 +153,22 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
     window.addEventListener('popstate', syncFromUrl);
     return () => window.removeEventListener('popstate', syncFromUrl);
+  }, []);
+
+  // Listen for theme-push from parent window (Tauri shell)
+  useEffect(() => {
+    function handleMessage(event: MessageEvent) {
+      if (event.data?.type !== 'theme-push') return;
+      const { mode, style: newStyle } = event.data;
+      if (newStyle === 'playful' || newStyle === 'clean') {
+        applyWithTransition(() => setStyleState(newStyle));
+      }
+      if (mode === 'dark' || mode === 'light') {
+        applyWithTransition(() => setModePreferenceState(mode));
+      }
+    }
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
   }, []);
 
   const setStyle = useCallback((s: Style) => {
