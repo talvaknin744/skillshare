@@ -31,6 +31,7 @@ import KeyboardShortcutsModal from './KeyboardShortcutsModal';
 import ShortcutHUD from './ShortcutHUD';
 import ThemePopover from './ThemePopover';
 import { useTour } from './tour';
+import UpdateDialog from './UpdateDialog';
 
 interface NavItem {
   to: string;
@@ -253,6 +254,8 @@ export default function Layout() {
 
       {/* Modifier-held HUD overlay — hidden on Config page where Cmd+S means Save */}
       <ShortcutHUD visible={modifierHeld && !location.pathname.startsWith('/config')} />
+
+      <UpdateDialog />
     </div>
   );
 }

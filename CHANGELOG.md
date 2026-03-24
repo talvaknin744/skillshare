@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.17.10] - 2026-03-24
+
+### New Features
+
+- **Update notification in Web UI** — a dialog appears on first visit when a newer CLI or skill version is available. Shows current and latest versions with a copyable `skillshare upgrade` command. Dismissed once per browser session
+
+### Bug Fixes
+
+- **Skill cards equal height** — skill cards on the Skills page now stretch to equal height within each row
+- **Tour step target fix** — the skill-filters tour step now correctly highlights its target element
+
 ## [0.17.9] - 2026-03-20
 
 ### New Features
