@@ -10,7 +10,8 @@ description: >-
   exec sequences for any test that follows a runbook or needs reproducible
   isolation.
 argument-hint: "[runbook-name | new]"
-targets: [claude, codex]
+metadata: 
+  targets: [claude, universal]
 ---
 
 Run isolated E2E tests in devcontainer. $ARGUMENTS specifies runbook name or "new".

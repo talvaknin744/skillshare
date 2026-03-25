@@ -10,7 +10,8 @@ description: >-
   docs, this is the skill to use. Never manually edit website docs without
   cross-validating flags against Go source first.
 argument-hint: "[command-name | commit-range]"
-targets: [claude, codex]
+metadata: 
+  targets: [claude, universal]
 ---
 
 Sync website documentation with recent code changes. $ARGUMENTS specifies scope: a command name (e.g., `install`), commit range, or omit to auto-detect from `git diff HEAD~1`.

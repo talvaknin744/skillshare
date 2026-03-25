@@ -8,7 +8,8 @@ description: >-
   This is a read-only audit — it reports issues but never modifies files. Use
   after large refactors, before releases, or whenever you suspect docs/code/tests
   have drifted out of sync.
-targets: [claude, codex]
+metadata: 
+  targets: [claude, universal]
 ---
 
 Read-only consistency audit across the skillshare codebase. $ARGUMENTS specifies focus area (e.g., "flags", "tests", "targets") or omit for full audit.

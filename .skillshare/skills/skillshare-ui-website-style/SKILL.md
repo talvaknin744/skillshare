@@ -10,7 +10,8 @@ description: >-
   page structure, accessibility, keyboard shortcuts, animations, and anti-patterns
   for both frontends. Even if the user just says "fix the styling" or "add a card",
   use this skill to ensure consistency.
-targets: [claude, codex, cursor]
+metadata: 
+  targets: [claude, universal]
 ---
 
 Enforce the skillshare design system across the two frontends. $ARGUMENTS is the file or area being worked on.

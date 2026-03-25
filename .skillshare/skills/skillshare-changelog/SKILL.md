@@ -10,7 +10,8 @@ description: >-
   manually edit CHANGELOG.md without this skill — it ensures proper formatting,
   user-perspective writing, and website changelog sync.
 argument-hint: "[tag-version]"
-targets: [claude, codex]
+metadata: 
+  targets: [claude, universal]
 ---
 
 Generate a CHANGELOG.md entry for a release. $ARGUMENTS specifies the tag version (e.g., `v0.16.0`) or omit to auto-detect via `git describe --tags --abbrev=0`.

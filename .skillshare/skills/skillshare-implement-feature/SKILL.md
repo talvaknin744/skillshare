@@ -10,7 +10,8 @@ description: >-
   involves writing Go code and tests, use this skill — even if the user
   doesn't explicitly say "implement".
 argument-hint: "[spec-file-path | feature description]"
-targets: [claude, codex]
+metadata: 
+  targets: [claude, universal]
 ---
 
 Implement a feature following TDD workflow. $ARGUMENTS is a spec file path (e.g., `specs/my-feature.md`) or a plain-text feature description.

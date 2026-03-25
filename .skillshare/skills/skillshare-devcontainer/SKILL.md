@@ -10,7 +10,8 @@ description: >-
   `ss`, `skillshare`, `go test`, or `make test`, stop and use this skill
   first to ensure correct container execution.
 argument-hint: "[command-to-run | task-description]"
-targets: [claude, codex]
+metadata: 
+  targets: [claude, universal]
 ---
 
 Execute CLI commands and tests inside the devcontainer. The host machine is macOS but the project binary is Linux — running CLI commands on the host will silently produce wrong results or fail. This skill prevents that mistake.
