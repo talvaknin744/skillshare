@@ -72,6 +72,7 @@ Command cheat sheet for skillshare.
 | Command | Description |
 |---------|-------------|
 | `analyze` | Analyze context window usage (interactive TUI) |
+| `analyze --filter <text>` | Filter skills by name/path substring |
 | `analyze --json` | Context usage as JSON |
 | `doctor` | Diagnose issues |
 | `doctor --json` | Diagnose issues (JSON output for CI) |
