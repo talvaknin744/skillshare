@@ -24,7 +24,7 @@ rm -rf /tmp/test-skill /tmp/proj-skill /tmp/project-test /tmp/remove-me /tmp/gro
 # Setup hook already ran ss init; verify config is clean
 cat ~/.config/skillshare/config.yaml
 # registry.yaml may not exist yet (created on first install) — that is OK
-ls ~/.config/skillshare/registry.yaml 2>/dev/null || echo "registry not yet created (expected)"
+ls ~/.config/skillshare/skills/registry.yaml 2>/dev/null || echo "registry not yet created (expected)"
 ```
 
 **Expected:**
@@ -48,7 +48,7 @@ ss install /tmp/test-skill
 - Installed
 
 ```bash
-cat ~/.config/skillshare/registry.yaml
+cat ~/.config/skillshare/skills/registry.yaml
 grep -c "skills:" ~/.config/skillshare/config.yaml && echo "FAIL: config has skills" || echo "PASS: config clean"
 ```
 
@@ -70,7 +70,7 @@ skills:
 YAML
 
 # Remove registry to test migration
-rm -f ~/.config/skillshare/registry.yaml
+rm -f ~/.config/skillshare/skills/registry.yaml
 
 # Run any command — triggers migration via config.Load()
 ss status
@@ -80,7 +80,7 @@ ss status
 - exit_code: 0
 
 ```bash
-cat ~/.config/skillshare/registry.yaml
+cat ~/.config/skillshare/skills/registry.yaml
 grep -c "skills:" ~/.config/skillshare/config.yaml && echo "FAIL: skills still in config" || echo "PASS: migration ok"
 ```
 
@@ -93,7 +93,7 @@ grep -c "skills:" ~/.config/skillshare/config.yaml && echo "FAIL: skills still i
 
 ```bash
 # Write registry with real skill
-cat > ~/.config/skillshare/registry.yaml << 'YAML'
+cat > ~/.config/skillshare/skills/registry.yaml << 'YAML'
 skills:
   - name: real-skill
     source: github.com/real/repo
@@ -115,8 +115,8 @@ ss status
 - exit_code: 0
 
 ```bash
-grep "real-skill" ~/.config/skillshare/registry.yaml && echo "PASS" || echo "FAIL: real-skill missing"
-grep "stale-skill" ~/.config/skillshare/registry.yaml && echo "FAIL: stale leaked" || echo "PASS: no leak"
+grep "real-skill" ~/.config/skillshare/skills/registry.yaml && echo "PASS" || echo "FAIL: real-skill missing"
+grep "stale-skill" ~/.config/skillshare/skills/registry.yaml && echo "FAIL: stale leaked" || echo "PASS: no leak"
 ```
 
 **Expected:**
@@ -141,7 +141,7 @@ ss uninstall remove-me --force
 - exit_code: 0
 
 ```bash
-grep "remove-me" ~/.config/skillshare/registry.yaml && echo "FAIL: still present" || echo "PASS: removed"
+grep "remove-me" ~/.config/skillshare/skills/registry.yaml && echo "FAIL: still present" || echo "PASS: removed"
 ```
 
 **Expected:**
@@ -165,8 +165,8 @@ ss install /tmp/grouped-skill --into frontend
 - Installed
 
 ```bash
-cat ~/.config/skillshare/registry.yaml
-grep "group: frontend" ~/.config/skillshare/registry.yaml && echo "PASS" || echo "FAIL: group missing"
+cat ~/.config/skillshare/skills/registry.yaml
+grep "group: frontend" ~/.config/skillshare/skills/registry.yaml && echo "PASS" || echo "FAIL: group missing"
 ```
 
 **Expected:**

@@ -485,7 +485,7 @@ cd "$HOME"
 ss install "file://$BARE_REPO" --skip-audit --yes
 
 # Check registry.yaml — reconcile should have walked the symlinked source
-cat "$HOME/.config/skillshare/registry.yaml"
+cat "$HOME/.config/skillshare/skills/registry.yaml"
 ```
 
 **Expected:**

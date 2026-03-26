@@ -150,7 +150,7 @@ Expected:
 ### 9. Verify registry cleaned up
 
 ```bash
-cat ~/.config/skillshare/registry.yaml
+cat ~/.config/skillshare/skills/registry.yaml
 ```
 
 Expected:

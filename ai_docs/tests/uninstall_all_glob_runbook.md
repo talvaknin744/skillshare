@@ -89,7 +89,7 @@ Verify:
 REMAINING=$(ls ~/.config/skillshare/skills/ 2>/dev/null | grep -v '.gitignore' | wc -l | tr -d ' ') || true
 echo "Remaining skills: $REMAINING (expected: 0)"
 
-grep -c 'name:' ~/.config/skillshare/registry.yaml 2>/dev/null || echo "no skills in registry"
+grep -c 'name:' ~/.config/skillshare/skills/registry.yaml 2>/dev/null || echo "no skills in registry"
 ```
 
 Expected:
