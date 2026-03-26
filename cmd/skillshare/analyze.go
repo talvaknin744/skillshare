@@ -214,7 +214,7 @@ func runAnalyze(opts *analyzeOptions) error {
 			}
 			return analyzeLoadResult{targets: entries}
 		}
-		return runAnalyzeTUI(loadFn, "global")
+		return runAnalyzeTUI(loadFn, "global", opts.filter)
 	}
 	return runAnalyzeCore(cfg.Source, cfg.Targets, cfg.Mode, opts)
 }

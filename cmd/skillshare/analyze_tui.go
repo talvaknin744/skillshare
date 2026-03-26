@@ -47,13 +47,15 @@ type analyzeTUIModel struct {
 	loadFn      func() analyzeLoadResult
 	loadErr     error
 	modeLabel   string
+
+	initialFilter string
 }
 
 type analyzeDataLoadedMsg struct {
 	result analyzeLoadResult
 }
 
-func newAnalyzeTUIModel(loadFn func() analyzeLoadResult, modeLabel string) analyzeTUIModel {
+func newAnalyzeTUIModel(loadFn func() analyzeLoadResult, modeLabel string, initialFilter string) analyzeTUIModel {
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
 	sp.Style = tc.SpinnerStyle
@@ -65,12 +67,13 @@ func newAnalyzeTUIModel(loadFn func() analyzeLoadResult, modeLabel string) analy
 	fi.Placeholder = "filter skills"
 
 	return analyzeTUIModel{
-		loading:     true,
-		loadFn:      loadFn,
-		loadSpinner: sp,
-		modeLabel:   modeLabel,
-		sortBy:      "tokens",
-		filterInput: fi,
+		loading:       true,
+		loadFn:        loadFn,
+		loadSpinner:   sp,
+		modeLabel:     modeLabel,
+		sortBy:        "tokens",
+		filterInput:   fi,
+		initialFilter: initialFilter,
 	}
 }
 
@@ -158,7 +161,11 @@ func (m *analyzeTUIModel) applyFilter() {
 		lower := strings.ToLower(m.filterText)
 		var filtered []analyzeSkillItem
 		for _, item := range m.allItems {
-			if strings.Contains(strings.ToLower(item.entry.Name), lower) {
+			searchField := item.entry.relPath
+			if searchField == "" {
+				searchField = item.entry.Name
+			}
+			if strings.Contains(strings.ToLower(searchField), lower) {
 				filtered = append(filtered, item)
 			}
 		}
@@ -260,6 +267,12 @@ func (m analyzeTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		l.SetShowPagination(false)
 		m.list = l
 		m.switchTarget()
+		if m.initialFilter != "" {
+			m.filterText = m.initialFilter
+			m.filterInput.SetValue(m.initialFilter)
+			m.applyFilter()
+			m.initialFilter = ""
+		}
 		m.syncListSize()
 		return m, nil
 
@@ -516,10 +529,30 @@ func (m analyzeTUIModel) renderStatsLine() string {
 		return ""
 	}
 	g := m.groups[m.groupIdx]
-	return tc.Help.Render(fmt.Sprintf("%d skills  Always: %s tokens  On-demand: %s tokens  %s",
-		g.entry.SkillCount,
-		formatTokensStr(g.entry.AlwaysLoaded.Chars),
-		formatTokensStr(g.entry.OnDemandMax.Chars),
+
+	// Compute sums from currently visible (filtered) items
+	var descChars, bodyChars int
+	visibleItems := m.list.Items()
+	for _, li := range visibleItems {
+		if item, ok := li.(analyzeSkillItem); ok {
+			descChars += item.entry.DescriptionChars
+			bodyChars += item.entry.BodyChars
+		}
+	}
+	totalChars := descChars + bodyChars
+
+	var countStr string
+	if m.filterText != "" {
+		countStr = fmt.Sprintf("%d/%d skills", len(visibleItems), len(m.allItems))
+	} else {
+		countStr = fmt.Sprintf("%d skills", g.entry.SkillCount)
+	}
+
+	return tc.Help.Render(fmt.Sprintf("%s  Always: %s tokens  On-demand: %s tokens  Total: %s tokens  %s",
+		countStr,
+		formatTokensStr(descChars),
+		formatTokensStr(bodyChars),
+		formatTokensStr(totalChars),
 		tc.Dim.Render("(1 token ≈ 4 chars)"),
 	)) + "\n"
 }
@@ -617,8 +650,8 @@ func (m analyzeTUIModel) helpText() string {
 	return help
 }
 
-func runAnalyzeTUI(loadFn func() analyzeLoadResult, modeLabel string) error {
-	model := newAnalyzeTUIModel(loadFn, modeLabel)
+func runAnalyzeTUI(loadFn func() analyzeLoadResult, modeLabel string, initialFilter string) error {
+	model := newAnalyzeTUIModel(loadFn, modeLabel, initialFilter)
 	p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	finalModel, err := p.Run()
 	if err != nil {

@@ -32,7 +32,7 @@ func cmdAnalyzeProject(root string, opts *analyzeOptions) error {
 			}
 			return analyzeLoadResult{targets: entries}
 		}
-		return runAnalyzeTUI(loadFn, "project")
+		return runAnalyzeTUI(loadFn, "project", opts.filter)
 	}
 
 	return runAnalyzeCore(runtime.sourcePath, runtime.targets, "", opts)
