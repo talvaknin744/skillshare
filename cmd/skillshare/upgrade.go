@@ -16,7 +16,6 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/sys/unix"
 
 	"skillshare/internal/config"
 	"skillshare/internal/install"
@@ -461,22 +460,6 @@ func writeBinary(r io.Reader, destPath string) error {
 	return nil
 }
 
-func needsSudo(path string) bool {
-	return unix.Access(filepath.Dir(path), unix.W_OK) != nil
-}
-
-// execFunc is the syscall used to replace the process. Overridden in tests.
-var execFunc = unix.Exec
-
-func reexecWithSudo(execPath string) error {
-	sudoPath, err := exec.LookPath("sudo")
-	if err != nil {
-		return fmt.Errorf("sudo not found, please run: sudo %s", strings.Join(os.Args, " "))
-	}
-	args := []string{"sudo", execPath}
-	args = append(args, os.Args[1:]...)
-	return execFunc(sudoPath, args, os.Environ())
-}
 
 func runBrewUpgrade() (string, error) {
 	// Phase 1: brew update (tap refresh)
