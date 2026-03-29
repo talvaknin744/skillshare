@@ -23,6 +23,7 @@ CLAUDE.md
 docs/plans/
 docs/superpowers/
 .agents/
+.codex/
 .skillshare/*
 !.skillshare/skills/
 !.skillshare/config.yaml
@@ -34,6 +35,7 @@ docs/superpowers/
 .cache/
 .playwright-mcp
 .superpowers/
+openspec/
 
 
 # Worktrees
@@ -53,3 +55,6 @@ internal/server/dist/
 # Air hot-reload
 tmp/
 MEMORY.md
+.spectra/
+openspec/.vector-search.db*
+.spectra.yaml

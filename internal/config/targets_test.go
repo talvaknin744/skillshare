@@ -116,3 +116,100 @@ func TestLookupProjectTarget_Alias(t *testing.T) {
 		t.Error("LookupProjectTarget should not find unknown name")
 	}
 }
+
+// --- Agent target tests ---
+
+func TestDefaultAgentTargets_V1TargetsHaveAgentPaths(t *testing.T) {
+	agents := DefaultAgentTargets()
+
+	v1Targets := []string{"claude", "cursor", "opencode", "augment"}
+	for _, name := range v1Targets {
+		tc, ok := agents[name]
+		if !ok {
+			t.Errorf("expected %q in DefaultAgentTargets", name)
+			continue
+		}
+		if tc.Path == "" {
+			t.Errorf("expected non-empty agent path for %q", name)
+		}
+	}
+}
+
+func TestDefaultAgentTargets_NonV1Excluded(t *testing.T) {
+	agents := DefaultAgentTargets()
+
+	// copilot, codex, etc. should NOT have agent paths in v1
+	for _, name := range []string{"copilot", "codex", "windsurf"} {
+		if _, ok := agents[name]; ok {
+			t.Errorf("%q should not be in DefaultAgentTargets (not v1 agent target)", name)
+		}
+	}
+}
+
+func TestProjectAgentTargets_V1TargetsHaveAgentPaths(t *testing.T) {
+	agents := ProjectAgentTargets()
+
+	v1Targets := []string{"claude", "cursor", "opencode", "augment"}
+	for _, name := range v1Targets {
+		tc, ok := agents[name]
+		if !ok {
+			t.Errorf("expected %q in ProjectAgentTargets", name)
+			continue
+		}
+		if tc.Path == "" {
+			t.Errorf("expected non-empty agent project path for %q", name)
+		}
+	}
+}
+
+func TestProjectAgentTargets_NonV1Excluded(t *testing.T) {
+	agents := ProjectAgentTargets()
+
+	for _, name := range []string{"copilot", "codex", "windsurf"} {
+		if _, ok := agents[name]; ok {
+			t.Errorf("%q should not be in ProjectAgentTargets", name)
+		}
+	}
+}
+
+func TestProjectTargetDotDirs_IncludesAgentPaths(t *testing.T) {
+	dirs := ProjectTargetDotDirs()
+
+	// .claude should be included (from both skill and agent project paths)
+	if !dirs[".claude"] {
+		t.Error("expected .claude in ProjectTargetDotDirs")
+	}
+
+	// .cursor should be included
+	if !dirs[".cursor"] {
+		t.Error("expected .cursor in ProjectTargetDotDirs")
+	}
+
+	// .skillshare always included
+	if !dirs[".skillshare"] {
+		t.Error("expected .skillshare in ProjectTargetDotDirs")
+	}
+}
+
+func TestDefaultTargets_ClaudePath(t *testing.T) {
+	targets := DefaultTargets()
+	tc, ok := targets["claude"]
+	if !ok {
+		t.Fatal("expected claude in DefaultTargets")
+	}
+	// Path should contain "skills" (not "agents")
+	if tc.Path == "" {
+		t.Error("expected non-empty global path for claude")
+	}
+}
+
+func TestProjectTargets_ClaudePath(t *testing.T) {
+	targets := ProjectTargets()
+	tc, ok := targets["claude"]
+	if !ok {
+		t.Fatal("expected claude in ProjectTargets")
+	}
+	if tc.Path != ".claude/skills" {
+		t.Errorf("claude project path = %q, want %q", tc.Path, ".claude/skills")
+	}
+}
