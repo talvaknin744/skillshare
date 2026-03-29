@@ -130,6 +130,10 @@ func cmdAudit(args []string) error {
 	}
 	applyModeLabel(mode)
 
+	// Extract kind filter (e.g. "skillshare audit agents") before subcommand check.
+	kind, rest := parseKindArg(rest)
+	_ = kind // TODO: wire agent-only audit filtering
+
 	// Check for "rules" subcommand before standard audit arg parsing.
 	if len(rest) > 0 && rest[0] == "rules" {
 		return cmdAuditRules(mode, rest[1:])
@@ -161,6 +165,7 @@ func cmdAudit(args []string) error {
 
 	var (
 		sourcePath       string
+		agentsSourcePath string
 		projectRoot      string
 		defaultThreshold string
 		configProfile    string
@@ -196,11 +201,17 @@ func cmdAudit(args []string) error {
 			return err
 		}
 		sourcePath = cfg.Source
+		agentsSourcePath = cfg.EffectiveAgentsSource()
 		defaultThreshold = cfg.Audit.BlockThreshold
 		configProfile = cfg.Audit.Profile
 		configDedupe = cfg.Audit.DedupeMode
 		configAnalyzers = cfg.Audit.EnabledAnalyzers
 		cfgPath = config.ConfigPath()
+	}
+
+	// When kind is agents-only, override sourcePath to the agents source directory.
+	if kind == kindAgents && agentsSourcePath != "" {
+		sourcePath = agentsSourcePath
 	}
 
 	policy := audit.ResolvePolicy(audit.PolicyInputs{

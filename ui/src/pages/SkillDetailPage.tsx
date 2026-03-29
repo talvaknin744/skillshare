@@ -10,6 +10,7 @@ import remarkGfm from 'remark-gfm';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import Badge from '../components/Badge';
+import KindBadge from '../components/KindBadge';
 import Card from '../components/Card';
 import CopyButton from '../components/CopyButton';
 import Button from '../components/Button';
@@ -370,6 +371,7 @@ export default function SkillDetailPage() {
           >
             {skill.name}
           </h2>
+          <KindBadge kind={skill.kind} size="md" />
           {skill.disabled && <Badge variant="danger">disabled</Badge>}
           {skill.isInRepo && <Badge variant="warning">tracked repo</Badge>}
           {skillTypeLabel(skill.type) && <Badge variant="info">{skillTypeLabel(skill.type)}</Badge>}
