@@ -125,7 +125,8 @@ export const api = {
   getOverview: () => apiFetch<Overview>('/overview'),
 
   // Skills
-  listSkills: () => apiFetch<{ skills: Skill[] }>('/skills'),
+  listSkills: (kind?: 'skill' | 'agent') =>
+    apiFetch<{ skills: Skill[] }>(kind ? `/skills?kind=${kind}` : '/skills'),
   getSkill: (name: string) =>
     apiFetch<{ skill: Skill; skillMdContent: string; files: string[] }>(`/skills/${encodeURIComponent(name)}`),
   deleteSkill: (name: string) =>
@@ -481,6 +482,7 @@ export interface TrackedRepo {
 export interface Overview {
   source: string;
   skillCount: number;
+  agentCount: number;
   topLevelCount: number;
   targetCount: number;
   mode: string;
@@ -501,6 +503,7 @@ export interface VersionCheck {
 
 export interface Skill {
   name: string;
+  kind: 'skill' | 'agent';
   flatName: string;
   relPath: string;
   sourcePath: string;
@@ -561,6 +564,9 @@ export interface Target {
   expectedSkillCount: number;
   skippedSkillCount?: number;
   collisionCount?: number;
+  agentPath?: string;
+  agentLinkedCount?: number;
+  agentExpectedCount?: number;
 }
 
 export interface SyncResult {
@@ -720,6 +726,7 @@ export interface CollectResult {
 // Trash types
 export interface TrashedSkill {
   name: string;
+  kind?: 'skill' | 'agent';
   timestamp: string;
   date: string;
   size: number;
@@ -853,6 +860,7 @@ export interface LogStatsResponse {
 // Audit types
 export interface AuditFinding {
   severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO';
+  kind?: 'skill' | 'agent';
   pattern: string;
   message: string;
   file: string;
