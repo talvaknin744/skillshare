@@ -43,11 +43,15 @@ func discoverFromGitWithProgressImpl(source *Source, onProgress ProgressCallback
 		}
 	}
 
+	// Discover agents (agents/ dir or pure agent repo fallback)
+	agents := discoverAgents(repoPath, len(skills) > 0)
+
 	commitHash, _ := getGitCommit(repoPath)
 
 	return &DiscoveryResult{
 		RepoPath:   tempDir,
 		Skills:     skills,
+		Agents:     agents,
 		Source:     source,
 		CommitHash: commitHash,
 	}, nil
@@ -160,6 +164,87 @@ func discoverSkills(repoPath string, includeRoot bool) []SkillInfo {
 	}
 
 	return skills
+}
+
+// discoverAgents finds .md files in an agents/ convention directory.
+// Also detects "pure agent repos" — repos with no SKILL.md and no agents/ dir
+// but with .md files at root (per D5 rule 4).
+func discoverAgents(repoPath string, hasSkills bool) []AgentInfo {
+	var agents []AgentInfo
+
+	// Rule 2: Check agents/ convention directory
+	agentsDir := filepath.Join(repoPath, "agents")
+	if info, err := os.Stat(agentsDir); err == nil && info.IsDir() {
+		agents = append(agents, scanAgentDir(repoPath, agentsDir)...)
+		return agents
+	}
+
+	// Rule 4: Pure agent repo fallback — no skills, no agents/ dir, root has .md files
+	if !hasSkills {
+		agents = append(agents, scanAgentDir(repoPath, repoPath)...)
+	}
+
+	return agents
+}
+
+// scanAgentDir scans a directory for .md agent files, excluding conventional files.
+func scanAgentDir(repoRoot, dir string) []AgentInfo {
+	var agents []AgentInfo
+
+	filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+
+		if info.IsDir() {
+			name := info.Name()
+			if name == ".git" || TargetDotDirs[name] {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		if !strings.HasSuffix(strings.ToLower(info.Name()), ".md") {
+			return nil
+		}
+
+		// Skip conventional excludes
+		if conventionalAgentExcludes[info.Name()] {
+			return nil
+		}
+
+		// Skip hidden files
+		if strings.HasPrefix(info.Name(), ".") {
+			return nil
+		}
+
+		relPath, relErr := filepath.Rel(repoRoot, path)
+		if relErr != nil {
+			return nil
+		}
+		relPath = strings.ReplaceAll(relPath, "\\", "/")
+
+		name := strings.TrimSuffix(info.Name(), ".md")
+
+		agents = append(agents, AgentInfo{
+			Name:     name,
+			Path:     relPath,
+			FileName: info.Name(),
+		})
+
+		return nil
+	})
+
+	return agents
+}
+
+var conventionalAgentExcludes = map[string]bool{
+	"README.md":    true,
+	"CHANGELOG.md": true,
+	"LICENSE.md":   true,
+	"HISTORY.md":   true,
+	"SECURITY.md":  true,
+	"SKILL.md":     true,
 }
 
 // DiscoverFromGitSubdir clones a repo and discovers skills within a subdirectory

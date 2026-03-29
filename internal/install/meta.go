@@ -14,9 +14,10 @@ import (
 // MetaFileName is the name of the skillshare metadata file stored in each skill directory.
 const MetaFileName = ".skillshare-meta.json"
 
-// SkillMeta contains metadata about an installed skill
+// SkillMeta contains metadata about an installed skill or agent
 type SkillMeta struct {
 	Source      string            `json:"source"`                // Original source input
+	Kind        string            `json:"kind,omitempty"`        // "skill" (default/empty) or "agent"
 	Type        string            `json:"type"`                  // Source type (github, local, etc.)
 	InstalledAt time.Time         `json:"installed_at"`          // Installation timestamp
 	RepoURL     string            `json:"repo_url,omitempty"`    // Git repo URL (for git sources)
@@ -25,6 +26,14 @@ type SkillMeta struct {
 	TreeHash    string            `json:"tree_hash,omitempty"`   // Git tree SHA of Subdir
 	FileHashes  map[string]string `json:"file_hashes,omitempty"` // sha256:<hex> per file
 	Branch      string            `json:"branch,omitempty"`      // Git branch (when non-default)
+}
+
+// EffectiveKind returns "skill" if Kind is empty, otherwise the Kind value.
+func (m *SkillMeta) EffectiveKind() string {
+	if m.Kind == "" {
+		return "skill"
+	}
+	return m.Kind
 }
 
 // WriteMeta saves metadata to the skill directory

@@ -97,6 +97,23 @@ func parseInstallArgs(args []string) (*installArgs, bool, error) {
 			result.opts.Branch = branch
 		case arg == "--track" || arg == "-t":
 			result.opts.Track = true
+		case arg == "--kind":
+			if i+1 >= len(args) {
+				return nil, false, fmt.Errorf("--kind requires a value (skill or agent)")
+			}
+			i++
+			kind := strings.ToLower(args[i])
+			if kind != "skill" && kind != "agent" {
+				return nil, false, fmt.Errorf("--kind must be 'skill' or 'agent', got %q", args[i])
+			}
+			result.opts.Kind = kind
+		case arg == "--agent" || arg == "-a":
+			if i+1 >= len(args) {
+				return nil, false, fmt.Errorf("-a requires agent name(s)")
+			}
+			i++
+			result.opts.AgentNames = strings.Split(args[i], ",")
+			result.opts.Kind = "agent"
 		case arg == "--skill" || arg == "-s":
 			if i+1 >= len(args) {
 				return nil, false, fmt.Errorf("--skill requires a value")

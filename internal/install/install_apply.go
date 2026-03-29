@@ -1,9 +1,12 @@
 package install
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"skillshare/internal/utils"
 )
 
 // buildDiscoverySkillSource constructs metadata Source string for a skill
@@ -379,6 +382,82 @@ func checkSkillFile(skillPath string, result *InstallResult) {
 	if _, err := os.Stat(skillFile); os.IsNotExist(err) {
 		result.Warnings = append(result.Warnings, "no SKILL.md found in skill directory")
 	}
+}
+
+// InstallAgentFromDiscovery installs a single agent (.md file) from a discovery result.
+// Unlike skill install (directory copy), agent install copies a single file.
+func InstallAgentFromDiscovery(discovery *DiscoveryResult, agent AgentInfo, destDir string, opts InstallOptions) (*InstallResult, error) {
+	result := &InstallResult{
+		SkillName: agent.Name,
+		Source:    buildDiscoverySkillSource(discovery.Source, agent.Path),
+	}
+
+	destFile := filepath.Join(destDir, agent.FileName)
+	result.SkillPath = destFile
+
+	if opts.DryRun {
+		result.Action = "would install"
+		return result, nil
+	}
+
+	if err := os.MkdirAll(destDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create agents directory: %w", err)
+	}
+
+	// Check if file exists
+	if _, err := os.Stat(destFile); err == nil && !opts.Force {
+		result.Action = "skipped"
+		result.Warnings = append(result.Warnings, "agent already exists (use --force to overwrite)")
+		return result, nil
+	}
+
+	// Determine source path in temp repo
+	var srcPath string
+	if discovery.Source.HasSubdir() {
+		srcPath = filepath.Join(discovery.RepoPath, "repo", discovery.Source.Subdir, agent.Path)
+	} else {
+		srcPath = filepath.Join(discovery.RepoPath, "repo", agent.Path)
+	}
+
+	data, err := os.ReadFile(srcPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read agent %s: %w", agent.FileName, err)
+	}
+
+	if err := os.WriteFile(destFile, data, 0644); err != nil {
+		return nil, fmt.Errorf("failed to write agent %s: %w", agent.FileName, err)
+	}
+
+	// Write metadata alongside the agent file (as <name>.skillshare-meta.json)
+	source := &Source{
+		Type:     discovery.Source.Type,
+		Raw:      result.Source,
+		CloneURL: discovery.Source.CloneURL,
+		Subdir:   agent.Path,
+		Name:     agent.Name,
+	}
+	meta := NewMetaFromSource(source)
+	meta.Kind = "agent"
+	if discovery.CommitHash != "" {
+		meta.Version = discovery.CommitHash
+	}
+	// For agents, file_hashes is just the single file
+	if hash, hashErr := computeSingleFileHash(destFile); hashErr == nil {
+		meta.FileHashes = map[string]string{agent.FileName: hash}
+	}
+
+	metaPath := filepath.Join(destDir, agent.Name+".skillshare-meta.json")
+	if metaData, marshalErr := json.MarshalIndent(meta, "", "  "); marshalErr == nil {
+		os.WriteFile(metaPath, metaData, 0644)
+	}
+
+	result.Action = "installed"
+	return result, nil
+}
+
+// computeSingleFileHash computes the sha256 hash for a single file.
+func computeSingleFileHash(filePath string) (string, error) {
+	return utils.FileHashFormatted(filePath)
 }
 
 // auditInstalledSkill scans the installed skill for security threats.

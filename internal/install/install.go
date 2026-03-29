@@ -10,12 +10,14 @@ import (
 // InstallOptions configures the install behavior
 type InstallOptions struct {
 	Name             string // Override skill name
+	Kind             string // "skill", "agent", or "" (auto-detect)
 	Force            bool   // Overwrite existing
 	DryRun           bool   // Preview only
 	Update           bool   // Update existing installation
 	Track            bool   // Install as tracked repository (preserves .git)
 	OnProgress       ProgressCallback
 	Skills           []string // Select specific skills from multi-skill repo (comma-separated)
+	AgentNames       []string // Select specific agents from repo (comma-separated)
 	Exclude          []string // Skills to exclude from installation (comma-separated)
 	All              bool     // Install all discovered skills without prompting
 	Yes              bool     // Auto-accept all prompts (equivalent to --all for multi-skill repos)
@@ -27,6 +29,12 @@ type InstallOptions struct {
 	Quiet            bool     // Suppress per-skill output in InstallFromConfig
 	Branch           string   // Git branch to clone from (empty = remote default)
 }
+
+// IsAgentMode returns true if explicitly installing agents.
+func (o InstallOptions) IsAgentMode() bool { return o.Kind == "agent" }
+
+// HasAgentFilter returns true if specific agents were requested via -a flag.
+func (o InstallOptions) HasAgentFilter() bool { return len(o.AgentNames) > 0 }
 
 // ShouldInstallAll returns true if all discovered skills should be installed without prompting.
 func (o InstallOptions) ShouldInstallAll() bool { return o.All || o.Yes }
@@ -55,13 +63,36 @@ type SkillInfo struct {
 	Description string // Description from SKILL.md frontmatter (if any)
 }
 
-// DiscoveryResult contains discovered skills from a repository
+// AgentInfo represents a discovered agent (.md file) in a repository
+type AgentInfo struct {
+	Name     string // Agent name (filename without .md)
+	Path     string // Relative path from repo root (e.g. "agents/tutor.md")
+	FileName string // Filename (e.g. "tutor.md")
+}
+
+// DiscoveryResult contains discovered skills and agents from a repository
 type DiscoveryResult struct {
 	RepoPath   string      // Temp directory where repo was cloned
 	Skills     []SkillInfo // Discovered skills
+	Agents     []AgentInfo // Discovered agents
 	Source     *Source     // Original source
 	CommitHash string      // Source commit hash when available
 	Warnings   []string    // Non-fatal warnings during discovery
+}
+
+// HasAgents reports whether the discovery found any agents.
+func (d *DiscoveryResult) HasAgents() bool {
+	return len(d.Agents) > 0
+}
+
+// HasSkills reports whether the discovery found any skills.
+func (d *DiscoveryResult) HasSkills() bool {
+	return len(d.Skills) > 0
+}
+
+// IsMixed reports whether the discovery found both skills and agents.
+func (d *DiscoveryResult) IsMixed() bool {
+	return d.HasSkills() && d.HasAgents()
 }
 
 // TrackedRepoResult reports the outcome of a tracked repo installation
