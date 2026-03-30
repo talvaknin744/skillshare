@@ -206,22 +206,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install skillshare
-        run: |
-          curl -fsSL https://skillshare.runkids.cc/install.sh | sh
-
-      - name: Audit new skills
-        run: skillshare audit --threshold high
-
-      - name: Fail if audit failed
-        if: failure()
-        run: exit 1
+      - uses: runkids/setup-skillshare@v1
+        with:
+          source: ./skills
+          audit: true
+          audit-threshold: high
 ```
 
 For the full workflow (including PR comment reporting and artifact upload), see the [validate-pr.yml source](https://github.com/runkids/skillshare-hub/blob/main/.github/workflows/validate-pr.yml).
 
-For more CI/CD patterns (JSON output with `jq`, GitHub Actions with artifact upload, SARIF upload), see the [CI/CD Skill Validation recipe](/docs/how-to/recipes/ci-cd-skill-validation).
+For more CI/CD patterns (SARIF upload, strict profiles, manual setup), see the [CI/CD Skill Validation recipe](/docs/how-to/recipes/ci-cd-skill-validation).
 
 ## See Also
 
