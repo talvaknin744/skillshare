@@ -150,12 +150,12 @@ export default function SkillPickerModal({
               return (
                 <label
                   key={skill.path}
-                  className="flex items-start gap-2 py-1.5 px-1 rounded-md cursor-pointer hover:bg-muted/30 transition-colors"
+                  className="flex items-center gap-2 py-1.5 px-1 rounded-md cursor-pointer hover:bg-muted/30 transition-colors"
                   style={{ borderRadius: radius.sm }}
                 >
                   {singleSelect ? (
                     <span
-                      className={`mt-1 w-4 h-4 shrink-0 rounded-full border-2 flex items-center justify-center transition-colors ${
+                      className={`w-4 h-4 shrink-0 rounded-full border-2 flex items-center justify-center transition-colors ${
                         isSelected ? 'border-info bg-info' : 'border-muted-dark'
                       }`}
                     >
