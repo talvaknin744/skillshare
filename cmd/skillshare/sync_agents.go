@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 	"time"
 
 	"skillshare/internal/config"
@@ -57,10 +59,12 @@ func syncAgentsGlobal(cfg *config.Config, dryRun, force, jsonOutput bool, start 
 	builtinAgents := config.DefaultAgentTargets()
 	var totals agentSyncStats
 	var syncErr error
+	var skippedTargets []string
 
 	for name := range cfg.Targets {
 		agentPath := resolveAgentTargetPath(cfg.Targets[name], builtinAgents, name)
 		if agentPath == "" {
+			skippedTargets = append(skippedTargets, name)
 			continue
 		}
 
@@ -81,6 +85,11 @@ func syncAgentsGlobal(cfg *config.Config, dryRun, force, jsonOutput bool, start 
 		ui.Info("Agent sync: %d linked, %d local, %d updated, %d pruned (%s)",
 			totals.linked, totals.skipped, totals.updated, totals.pruned,
 			formatDuration(start))
+		if len(skippedTargets) > 0 {
+			sort.Strings(skippedTargets)
+			ui.Warning("%d target(s) skipped for agents (no agents path): %s",
+				len(skippedTargets), strings.Join(skippedTargets, ", "))
+		}
 	}
 
 	return totals, syncErr
@@ -135,6 +144,7 @@ func syncAgentsProject(projectRoot string, dryRun, force, jsonOutput bool, start
 	builtinAgents := config.ProjectAgentTargets()
 	var totals agentSyncStats
 	var syncErr error
+	var skippedTargets []string
 
 	// Load project config for target list
 	projCfg, loadErr := config.LoadProject(projectRoot)
@@ -145,6 +155,7 @@ func syncAgentsProject(projectRoot string, dryRun, force, jsonOutput bool, start
 	for _, entry := range projCfg.Targets {
 		agentPath := resolveProjectAgentTargetPath(entry, builtinAgents, projectRoot)
 		if agentPath == "" {
+			skippedTargets = append(skippedTargets, entry.Name)
 			continue
 		}
 
@@ -164,6 +175,11 @@ func syncAgentsProject(projectRoot string, dryRun, force, jsonOutput bool, start
 		ui.Info("Project agent sync: %d linked, %d local, %d updated, %d pruned (%s)",
 			totals.linked, totals.skipped, totals.updated, totals.pruned,
 			formatDuration(start))
+		if len(skippedTargets) > 0 {
+			sort.Strings(skippedTargets)
+			ui.Warning("%d target(s) skipped for agents (no agents path): %s",
+				len(skippedTargets), strings.Join(skippedTargets, ", "))
+		}
 	}
 
 	return syncErr
