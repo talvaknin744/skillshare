@@ -85,10 +85,15 @@ func RestoreToPath(backupPath, targetName, destPath string, opts RestoreOptions)
 	return copyDir(targetBackupPath, destPath)
 }
 
-// RestoreLatest restores the most recent backup for a target.
-// Returns the timestamp of the restored backup.
+// RestoreLatest restores the most recent backup for a target from the global backup dir.
 func RestoreLatest(targetName, destPath string, opts RestoreOptions) (string, error) {
-	backups, err := List()
+	return RestoreLatestInDir(BackupDir(), targetName, destPath, opts)
+}
+
+// RestoreLatestInDir restores the most recent backup for a target from the specified dir.
+// Returns the timestamp of the restored backup.
+func RestoreLatestInDir(backupDir, targetName, destPath string, opts RestoreOptions) (string, error) {
+	backups, err := ListInDir(backupDir)
 	if err != nil {
 		return "", err
 	}
@@ -108,9 +113,14 @@ func RestoreLatest(targetName, destPath string, opts RestoreOptions) (string, er
 	return "", fmt.Errorf("no backup found for target '%s'", targetName)
 }
 
-// FindBackupsForTarget returns all backups that contain the specified target
+// FindBackupsForTarget returns all backups that contain the specified target from the global dir.
 func FindBackupsForTarget(targetName string) ([]BackupInfo, error) {
-	allBackups, err := List()
+	return FindBackupsForTargetInDir(BackupDir(), targetName)
+}
+
+// FindBackupsForTargetInDir returns all backups that contain the specified target.
+func FindBackupsForTargetInDir(backupDir, targetName string) ([]BackupInfo, error) {
+	allBackups, err := ListInDir(backupDir)
 	if err != nil {
 		return nil, err
 	}
@@ -128,9 +138,14 @@ func FindBackupsForTarget(targetName string) ([]BackupInfo, error) {
 	return result, nil
 }
 
-// GetBackupByTimestamp finds a backup by its timestamp
+// GetBackupByTimestamp finds a backup by its timestamp from the global dir.
 func GetBackupByTimestamp(timestamp string) (*BackupInfo, error) {
-	backups, err := List()
+	return GetBackupByTimestampInDir(BackupDir(), timestamp)
+}
+
+// GetBackupByTimestampInDir finds a backup by its timestamp in the specified dir.
+func GetBackupByTimestampInDir(backupDir, timestamp string) (*BackupInfo, error) {
+	backups, err := ListInDir(backupDir)
 	if err != nil {
 		return nil, err
 	}

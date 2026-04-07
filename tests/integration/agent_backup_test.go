@@ -123,13 +123,89 @@ targets:
 	result.AssertOutputNotContains(t, "agent")
 }
 
-func TestRestore_Agents_ProjectModeRejected(t *testing.T) {
+func TestBackup_Agents_ProjectMode_CreatesBackup(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	projectDir := setupProjectWithAgents(t, sb)
+
+	// Sync agents first
+	result := sb.RunCLIInDir(projectDir, "sync", "-p", "agents")
+	result.AssertSuccess(t)
+
+	// Backup project agents
+	result = sb.RunCLIInDir(projectDir, "backup", "-p", "agents")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "agent backup")
+
+	// Verify backup was created under .skillshare/backups/
+	backupDir := filepath.Join(projectDir, ".skillshare", "backups")
+	entries, err := os.ReadDir(backupDir)
+	if err != nil {
+		t.Fatalf("expected backup dir at %s: %v", backupDir, err)
+	}
+	if len(entries) == 0 {
+		t.Fatal("expected at least one backup timestamp directory")
+	}
+}
+
+func TestBackup_Agents_ProjectMode_DryRun(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	projectDir := setupProjectWithAgents(t, sb)
+	sb.RunCLIInDir(projectDir, "sync", "-p", "agents")
+
+	result := sb.RunCLIInDir(projectDir, "backup", "-p", "agents", "--dry-run")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "Dry run")
+
+	// Backup dir should NOT exist
+	backupDir := filepath.Join(projectDir, ".skillshare", "backups")
+	if _, err := os.Stat(backupDir); !os.IsNotExist(err) {
+		t.Fatal("backup dir should not exist in dry run mode")
+	}
+}
+
+func TestBackup_Agents_ProjectMode_RestoreRoundTrip(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	projectDir := setupProjectWithAgents(t, sb)
+
+	// Sync → backup
+	sb.RunCLIInDir(projectDir, "sync", "-p", "agents")
+	sb.RunCLIInDir(projectDir, "backup", "-p", "agents")
+
+	// Verify agent symlink exists
+	claudeAgents := filepath.Join(projectDir, ".claude", "agents")
+	linkPath := filepath.Join(claudeAgents, "tutor.md")
+	if _, err := os.Lstat(linkPath); err != nil {
+		t.Fatalf("expected agent symlink at %s", linkPath)
+	}
+
+	// Delete agent from target
+	os.Remove(linkPath)
+
+	// Restore
+	result := sb.RunCLIInDir(projectDir, "restore", "-p", "agents", "claude", "--force")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "Restored")
+
+	// Verify agent file is back (as a regular file from backup, not symlink)
+	if _, err := os.Stat(linkPath); err != nil {
+		t.Fatalf("expected restored agent at %s: %v", linkPath, err)
+	}
+}
+
+func TestRestore_Agents_SkillsProjectModeRejected(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
 	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
 
-	result := sb.RunCLI("restore", "-p", "agents", "claude")
+	// Skills restore in project mode should still be rejected
+	result := sb.RunCLI("restore", "-p", "claude")
 	result.AssertFailure(t)
 	result.AssertAnyOutputContains(t, "not supported in project mode")
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
@@ -10,37 +11,37 @@ import (
 
 // createAgentBackup backs up agent target directories.
 // Agent backups use "<target>-agents" as the backup entry name.
-func createAgentBackup(targetName string, dryRun bool) error {
-	cfg, err := config.Load()
+// In project mode, backups are stored under .skillshare/backups/.
+func createAgentBackup(mode runMode, cwd, targetName string, dryRun bool) error {
+	backupDir, targets, err := resolveAgentBackupContext(mode, cwd)
 	if err != nil {
 		return err
 	}
 
-	builtinAgents := config.DefaultAgentTargets()
-	ui.Header("Creating agent backup")
+	modeLabel := "global"
+	if mode == modeProject {
+		modeLabel = "project"
+	}
+
+	ui.Header(fmt.Sprintf("Creating agent backup (%s)", modeLabel))
 	if dryRun {
 		ui.Warning("Dry run mode - no backups will be created")
 	}
 
 	created := 0
-	for name := range cfg.Targets {
-		if targetName != "" && name != targetName {
+	for _, at := range targets {
+		if targetName != "" && at.name != targetName {
 			continue
 		}
 
-		agentPath := resolveAgentTargetPath(cfg.Targets[name], builtinAgents, name)
-		if agentPath == "" {
-			continue
-		}
-
-		entryName := name + "-agents"
+		entryName := at.name + "-agents"
 
 		if dryRun {
-			ui.Info("%s: would backup agents from %s", entryName, agentPath)
+			ui.Info("%s: would backup agents from %s", entryName, at.agentPath)
 			continue
 		}
 
-		backupPath, backupErr := backup.Create(entryName, agentPath)
+		backupPath, backupErr := backup.CreateInDir(backupDir, entryName, at.agentPath)
 		if backupErr != nil {
 			ui.Warning("Failed to backup %s: %v", entryName, backupErr)
 			continue
@@ -61,18 +62,24 @@ func createAgentBackup(targetName string, dryRun bool) error {
 }
 
 // restoreAgentBackup restores agent target directories from backup.
-func restoreAgentBackup(targetName, fromTimestamp string, force, dryRun bool) error {
+func restoreAgentBackup(mode runMode, cwd, targetName, fromTimestamp string, force, dryRun bool) error {
 	if targetName == "" {
 		return fmt.Errorf("usage: skillshare restore agents <target> [--from <timestamp>] [--force] [--dry-run]")
 	}
 
-	cfg, err := config.Load()
+	backupDir, targets, err := resolveAgentBackupContext(mode, cwd)
 	if err != nil {
 		return err
 	}
 
-	builtinAgents := config.DefaultAgentTargets()
-	agentPath := resolveAgentTargetPath(cfg.Targets[targetName], builtinAgents, targetName)
+	// Find the target's agent path.
+	var agentPath string
+	for _, at := range targets {
+		if at.name == targetName {
+			agentPath = at.agentPath
+			break
+		}
+	}
 	if agentPath == "" {
 		return fmt.Errorf("target '%s' has no agent path configured", targetName)
 	}
@@ -88,7 +95,59 @@ func restoreAgentBackup(targetName, fromTimestamp string, force, dryRun bool) er
 
 	opts := backup.RestoreOptions{Force: force}
 	if fromTimestamp != "" {
-		return restoreFromTimestamp(entryName, agentPath, fromTimestamp, opts)
+		return restoreFromTimestampInDir(backupDir, entryName, agentPath, fromTimestamp, opts)
 	}
-	return restoreFromLatest(entryName, agentPath, opts)
+	return restoreFromLatestInDir(backupDir, entryName, agentPath, opts)
+}
+
+// agentTarget holds resolved name + agent path for backup/restore.
+type agentTarget struct {
+	name      string
+	agentPath string
+}
+
+// resolveAgentBackupContext returns the backup directory and agent-capable targets
+// for the given mode.
+func resolveAgentBackupContext(mode runMode, cwd string) (string, []agentTarget, error) {
+	if mode == modeProject {
+		return resolveProjectAgentBackupContext(cwd)
+	}
+	return resolveGlobalAgentBackupContext()
+}
+
+func resolveGlobalAgentBackupContext() (string, []agentTarget, error) {
+	cfg, err := config.Load()
+	if err != nil {
+		return "", nil, err
+	}
+
+	builtinAgents := config.DefaultAgentTargets()
+	var targets []agentTarget
+	for name := range cfg.Targets {
+		agentPath := resolveAgentTargetPath(cfg.Targets[name], builtinAgents, name)
+		if agentPath != "" {
+			targets = append(targets, agentTarget{name: name, agentPath: agentPath})
+		}
+	}
+
+	return backup.BackupDir(), targets, nil
+}
+
+func resolveProjectAgentBackupContext(cwd string) (string, []agentTarget, error) {
+	projCfg, err := config.LoadProject(cwd)
+	if err != nil {
+		return "", nil, fmt.Errorf("cannot load project config: %w", err)
+	}
+
+	builtinAgents := config.ProjectAgentTargets()
+	var targets []agentTarget
+	for _, entry := range projCfg.Targets {
+		agentPath := resolveProjectAgentTargetPath(entry, builtinAgents, cwd)
+		if agentPath != "" {
+			targets = append(targets, agentTarget{name: entry.Name, agentPath: agentPath})
+		}
+	}
+
+	backupDir := filepath.Join(cwd, ".skillshare", "backups")
+	return backupDir, targets, nil
 }

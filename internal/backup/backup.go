@@ -11,15 +11,24 @@ import (
 	"skillshare/internal/config"
 )
 
-// BackupDir returns the backup directory path.
+// BackupDir returns the global backup directory path.
 func BackupDir() string {
 	return filepath.Join(config.DataDir(), "backups")
 }
 
-// Create creates a backup of the target directory
-// Returns the backup path
+// ProjectBackupDir returns the project-level backup directory path.
+func ProjectBackupDir(projectRoot string) string {
+	return filepath.Join(projectRoot, ".skillshare", "backups")
+}
+
+// Create creates a backup of the target directory using the global backup dir.
 func Create(targetName, targetPath string) (string, error) {
-	backupDir := BackupDir()
+	return CreateInDir(BackupDir(), targetName, targetPath)
+}
+
+// CreateInDir creates a backup of the target directory in the specified backup dir.
+// Returns the backup path, or ("", nil) when there is nothing to back up.
+func CreateInDir(backupDir, targetName, targetPath string) (string, error) {
 	if backupDir == "" {
 		return "", fmt.Errorf("cannot determine backup directory: home directory not found")
 	}
@@ -62,9 +71,13 @@ func Create(targetName, targetPath string) (string, error) {
 	return backupPath, nil
 }
 
-// List returns all backups sorted by date (newest first)
+// List returns all backups from the global backup dir, sorted by date (newest first).
 func List() ([]BackupInfo, error) {
-	backupDir := BackupDir()
+	return ListInDir(BackupDir())
+}
+
+// ListInDir returns all backups from the specified directory, sorted by date (newest first).
+func ListInDir(backupDir string) ([]BackupInfo, error) {
 	if backupDir == "" {
 		return nil, fmt.Errorf("cannot determine backup directory: home directory not found")
 	}
