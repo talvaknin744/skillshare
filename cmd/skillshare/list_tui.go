@@ -105,6 +105,7 @@ type listTUIModel struct {
 	confirming    bool   // true when confirmation overlay is shown
 	confirmAction string // "audit", "update", "uninstall"
 	confirmSkill  string // skill name for confirmation display
+	confirmKind   string // "skill" or "agent"
 
 	// Content viewer overlay — dual-pane: left tree + right content
 	showContent     bool
@@ -361,6 +362,7 @@ func (m listTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.confirming = false
 				m.confirmAction = ""
 				m.confirmSkill = ""
+				m.confirmKind = ""
 				return m, nil
 			}
 			return m, nil
@@ -470,6 +472,7 @@ func (m listTUIModel) enterConfirm(action string) (tea.Model, tea.Cmd) {
 	m.confirming = true
 	m.confirmAction = action
 	m.confirmSkill = name
+	m.confirmKind = item.entry.Kind
 	return m, nil
 }
 
@@ -481,7 +484,12 @@ func (m listTUIModel) toggleDisabled() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	ignorePath := filepath.Join(m.sourcePath, ".skillignore")
+	var ignorePath string
+	if item.entry.Kind == "agent" {
+		ignorePath = filepath.Join(m.agentsSourcePath, ".agentignore")
+	} else {
+		ignorePath = filepath.Join(m.sourcePath, ".skillignore")
+	}
 	pattern := item.entry.RelPath
 	if pattern == "" {
 		pattern = item.entry.Name
@@ -552,7 +560,11 @@ func (m listTUIModel) View() string {
 		if m.modeLabel == "project" {
 			flag = "-p"
 		}
-		cmd := fmt.Sprintf("skillshare %s %s %s", m.confirmAction, flag, m.confirmSkill)
+		kindArg := ""
+		if m.confirmKind == "agent" {
+			kindArg = "agents "
+		}
+		cmd := fmt.Sprintf("skillshare %s %s%s %s", m.confirmAction, kindArg, flag, m.confirmSkill)
 		if m.confirmAction == "uninstall" {
 			return fmt.Sprintf("\n  %s\n\n  → %s\n\n  Proceed? [Y/n] ",
 				tc.Red.Render("Uninstall "+m.confirmSkill+"?"), cmd)

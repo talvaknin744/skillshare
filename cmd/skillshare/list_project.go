@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"path/filepath"
+	"time"
 
 	"skillshare/internal/config"
 	"skillshare/internal/sync"
@@ -69,14 +70,15 @@ func cmdListProject(root string, opts listOptions, kind resourceKindFilter) erro
 			return cmdAudit([]string{"-p", skillName})
 		case "update":
 			if skillKind == "agent" {
-				_, updateErr := cmdUpdateProject([]string{"agents", skillName}, root)
-				return updateErr
+				return cmdUpdateAgentsProject([]string{skillName}, root, time.Now())
 			}
 			_, updateErr := cmdUpdateProject([]string{skillName}, root)
 			return updateErr
 		case "uninstall":
 			if skillKind == "agent" {
-				return cmdUninstallProject([]string{"agents", "--force", skillName}, root)
+				agentsDir := filepath.Join(root, ".skillshare", "agents")
+				uOpts := &uninstallOptions{skillNames: []string{skillName}, force: true}
+				return cmdUninstallAgents(agentsDir, uOpts, config.ProjectConfigPath(root), time.Now())
 			}
 			return cmdUninstallProject([]string{"--force", skillName}, root)
 		}

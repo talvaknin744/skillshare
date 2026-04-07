@@ -547,6 +547,5 @@ Examples:
   skillshare update --all --prune        # Update all + remove stale skills
   skillshare update agents --all         # Update all agents
   skillshare update agents tutor         # Update a single agent
-
-Note: --group is not supported for agents.`)
+  skillshare update agents -G demo       # Update all agents in demo/`)
 }

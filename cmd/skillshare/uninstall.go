@@ -1211,5 +1211,6 @@ Examples:
   skillshare uninstall _team-repo            # Remove tracked repository
   skillshare uninstall team-repo             # _ prefix is optional
   skillshare uninstall agents tutor          # Uninstall an agent
-  skillshare uninstall agents --all          # Uninstall all agents`)
+  skillshare uninstall agents --all          # Uninstall all agents
+  skillshare uninstall agents -G demo        # Uninstall all agents in demo/`)
 }

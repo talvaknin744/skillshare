@@ -50,24 +50,45 @@ func cmdUninstallAgents(agentsDir string, opts *uninstallOptions, cfgPath string
 				return fmt.Errorf("agent %q not found in %s", input, agentsDir)
 			}
 		}
+
+		// Resolve --group targets
+		if len(opts.groups) > 0 {
+			groupFiltered, err := filterDiscoveredAgentsByGroups(discovered, opts.groups, agentsDir)
+			if err != nil {
+				return err
+			}
+			if len(groupFiltered) == 0 {
+				return fmt.Errorf("no agents found in group(s): %s", strings.Join(opts.groups, ", "))
+			}
+			// Deduplicate against already-resolved name targets
+			seen := make(map[string]bool, len(targets))
+			for _, t := range targets {
+				seen[t.RelPath] = true
+			}
+			for _, d := range groupFiltered {
+				if !seen[d.RelPath] {
+					targets = append(targets, d)
+				}
+			}
+		}
 	}
 
 	if len(targets) == 0 {
-		return fmt.Errorf("specify agent name(s) or --all")
+		return fmt.Errorf("specify agent name(s), --group, or --all")
 	}
 
 	// Confirmation (unless --force or --json)
 	if !opts.force && !opts.jsonOutput {
 		ui.Warning("Uninstalling %d agent(s)", len(targets))
 		const maxDisplay = 20
-		if len(targets) <= maxDisplay {
-			for _, t := range targets {
-				fmt.Printf("  - %s\n", t.Name)
-			}
-		} else {
-			for _, t := range targets[:maxDisplay] {
-				fmt.Printf("  - %s\n", t.Name)
-			}
+		display := targets
+		if len(display) > maxDisplay {
+			display = display[:maxDisplay]
+		}
+		for _, t := range display {
+			fmt.Printf("  - %s\n", strings.TrimSuffix(t.RelPath, ".md"))
+		}
+		if len(targets) > maxDisplay {
 			fmt.Printf("  ... and %d more\n", len(targets)-maxDisplay)
 		}
 		fmt.Println()
@@ -90,21 +111,22 @@ func cmdUninstallAgents(agentsDir string, opts *uninstallOptions, cfgPath string
 		metaName := strings.TrimSuffix(filepath.Base(t.RelPath), ".md")
 		metaFile := filepath.Join(filepath.Dir(agentFile), metaName+".skillshare-meta.json")
 
+		displayName := strings.TrimSuffix(t.RelPath, ".md")
 		if opts.dryRun {
-			ui.Info("[dry-run] Would remove agent: %s", t.Name)
-			removed = append(removed, t.Name)
+			ui.Info("[dry-run] Would remove agent: %s", displayName)
+			removed = append(removed, displayName)
 			continue
 		}
 
 		_, err := trash.MoveAgentToTrash(agentFile, metaFile, t.Name, trashBase)
 		if err != nil {
-			ui.Error("Failed to remove %s: %v", t.Name, err)
-			failed = append(failed, t.Name)
+			ui.Error("Failed to remove %s: %v", displayName, err)
+			failed = append(failed, displayName)
 			continue
 		}
 
-		ui.Success("Removed agent: %s", t.Name)
-		removed = append(removed, t.Name)
+		ui.Success("Removed agent: %s", displayName)
+		removed = append(removed, displayName)
 	}
 
 	// JSON output

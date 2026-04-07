@@ -40,7 +40,7 @@ func TestUpdate_Agents_LocalOnly(t *testing.T) {
 	result.AssertAnyOutputContains(t, "local")
 }
 
-func TestUpdate_Agents_GroupNotSupported(t *testing.T) {
+func TestUpdate_Agents_GroupInvalidDir(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
@@ -49,9 +49,9 @@ func TestUpdate_Agents_GroupNotSupported(t *testing.T) {
 	})
 	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
 
-	result := sb.RunCLI("update", "agents", "--group", "mygroup")
+	result := sb.RunCLI("update", "agents", "--group", "nonexistent")
 	result.AssertFailure(t)
-	result.AssertAnyOutputContains(t, "not supported for agents")
+	result.AssertAnyOutputContains(t, "not found")
 }
 
 func TestUpdate_Agents_RequiresNameOrAll(t *testing.T) {

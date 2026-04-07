@@ -193,7 +193,7 @@ func cmdCheck(args []string) error {
 		cfgPath = config.ProjectConfigPath(cwd)
 		if kind == kindAgents {
 			agentsDir := filepath.Join(cwd, ".skillshare", "agents")
-			renderAgentCheck(agentsDir, opts.json)
+			renderAgentCheck(agentsDir, opts.groups, opts.json)
 			logCheckOp(cfgPath, 0, 0, 0, 0, scope, start, nil)
 			return nil
 		}
@@ -210,7 +210,7 @@ func cmdCheck(args []string) error {
 	// Agent-only check: scan agents source directory and skip repo checks.
 	if kind == kindAgents {
 		agentsDir := cfg.EffectiveAgentsSource()
-		renderAgentCheck(agentsDir, opts.json)
+		renderAgentCheck(agentsDir, opts.groups, opts.json)
 		logCheckOp(cfgPath, 0, 0, 0, 0, scope, start, nil)
 		return nil
 	}
@@ -910,8 +910,23 @@ func formatSourceShort(source string) string {
 }
 
 // renderAgentCheck runs CheckAgents and displays results (text or JSON).
-func renderAgentCheck(agentsDir string, jsonMode bool) {
+// If groups is non-empty, only agents in those group subdirectories are shown.
+func renderAgentCheck(agentsDir string, groups []string, jsonMode bool) {
 	agentResults := check.CheckAgents(agentsDir)
+
+	if len(groups) > 0 {
+		filtered, err := filterAgentResultsByGroups(agentResults, groups, agentsDir)
+		if err != nil {
+			if jsonMode {
+				writeJSONError(err) //nolint:errcheck
+				return
+			}
+			ui.Error("%v", err)
+			return
+		}
+		agentResults = filtered
+	}
+
 	if jsonMode {
 		out, _ := json.MarshalIndent(agentResults, "", "  ")
 		fmt.Println(string(out))
@@ -968,5 +983,7 @@ Examples:
   skillshare check --group frontend    # Check all skills in frontend/
   skillshare check x -G backend        # Mix names and groups
   skillshare check --json              # Output as JSON (for CI)
-  skillshare check -p                  # Check project skills`)
+  skillshare check -p                  # Check project skills
+  skillshare check agents              # Check all agents
+  skillshare check agents -G demo      # Check agents in demo/`)
 }

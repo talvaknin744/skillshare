@@ -69,10 +69,8 @@ func (AgentKind) Discover(sourceDir string) ([]DiscoveredResource, error) {
 		}
 		relPath = strings.ReplaceAll(relPath, "\\", "/")
 
-		// Apply .agentignore matching
-		if ignoreMatcher.HasRules() && ignoreMatcher.Match(relPath, false) {
-			return nil
-		}
+		// Apply .agentignore matching — mark as disabled but still include
+		disabled := ignoreMatcher.HasRules() && ignoreMatcher.Match(relPath, false)
 
 		name := agentNameFromFile(path, info.Name())
 
@@ -84,6 +82,7 @@ func (AgentKind) Discover(sourceDir string) ([]DiscoveredResource, error) {
 			RelPath:    relPath,
 			AbsPath:    path,
 			IsNested:   isNested,
+			Disabled:   disabled,
 			FlatName:   AgentFlatName(relPath),
 			SourcePath: filepath.Join(sourceDir, relPath),
 		})
@@ -125,6 +124,17 @@ func (AgentKind) FlatName(relPath string) string {
 func AgentFlatName(relPath string) string {
 	relPath = strings.ReplaceAll(relPath, "\\", "/")
 	return filepath.Base(relPath)
+}
+
+// ActiveAgents returns only non-disabled agents from the given slice.
+func ActiveAgents(agents []DiscoveredResource) []DiscoveredResource {
+	active := make([]DiscoveredResource, 0, len(agents))
+	for _, a := range agents {
+		if !a.Disabled {
+			active = append(active, a)
+		}
+	}
+	return active
 }
 
 // CreateLink creates a file symlink from dst pointing to src.

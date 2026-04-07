@@ -313,11 +313,31 @@ func TestAgentKind_Discover_RespectsAgentignore(t *testing.T) {
 		t.Fatalf("Discover error: %v", err)
 	}
 
-	if len(resources) != 1 {
-		t.Fatalf("expected 1 resource (ignored filtered out), got %d", len(resources))
+	if len(resources) != 2 {
+		t.Fatalf("expected 2 resources (ignored included as disabled), got %d", len(resources))
 	}
-	if resources[0].Name != "active" {
-		t.Errorf("Name = %q, want %q", resources[0].Name, "active")
+
+	// Find each by name and check Disabled flag
+	var active, ignored *DiscoveredResource
+	for i := range resources {
+		switch resources[i].Name {
+		case "active":
+			active = &resources[i]
+		case "ignored":
+			ignored = &resources[i]
+		}
+	}
+	if active == nil {
+		t.Fatal("active agent not found")
+	}
+	if active.Disabled {
+		t.Error("active agent should not be disabled")
+	}
+	if ignored == nil {
+		t.Fatal("ignored agent not found")
+	}
+	if !ignored.Disabled {
+		t.Error("ignored agent should be disabled")
 	}
 }
 

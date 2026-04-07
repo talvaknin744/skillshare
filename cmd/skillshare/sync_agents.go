@@ -35,11 +35,12 @@ func syncAgentsGlobal(cfg *config.Config, dryRun, force, jsonOutput bool, start 
 		return agentSyncStats{}, fmt.Errorf("cannot access agents source: %w", err)
 	}
 
-	// Discover agents
-	agents, err := resource.AgentKind{}.Discover(agentsSource)
+	// Discover agents (excludes disabled from sync)
+	allAgents, err := resource.AgentKind{}.Discover(agentsSource)
 	if err != nil {
 		return agentSyncStats{}, fmt.Errorf("cannot discover agents: %w", err)
 	}
+	agents := resource.ActiveAgents(allAgents)
 
 	if len(agents) == 0 {
 		if !jsonOutput {
@@ -128,10 +129,11 @@ func syncAgentsProject(projectRoot string, dryRun, force, jsonOutput bool, start
 		return fmt.Errorf("cannot access project agents: %w", err)
 	}
 
-	agents, err := resource.AgentKind{}.Discover(agentsSource)
+	allAgents, err := resource.AgentKind{}.Discover(agentsSource)
 	if err != nil {
 		return fmt.Errorf("cannot discover project agents: %w", err)
 	}
+	agents := resource.ActiveAgents(allAgents)
 
 	if len(agents) == 0 {
 		if !jsonOutput {

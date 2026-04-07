@@ -770,7 +770,7 @@ func auditSkillByName(sourcePath, name, mode, projectRoot, threshold, format, po
 	}
 
 	start := time.Now()
-	result, err := scanSkillPath(skillPath, projectRoot, reg)
+	result, err := scanPathTarget(skillPath, projectRoot, reg)
 	if err != nil {
 		return nil, summary, fmt.Errorf("scan error: %w", err)
 	}
@@ -786,7 +786,11 @@ func auditSkillByName(sourcePath, name, mode, projectRoot, threshold, format, po
 	summary.Skill = name
 	summary.Mode = mode
 	if format == formatText {
-		subtitle := auditHeaderSubtitle(fmt.Sprintf("Scanning skill: %s", name), mode, sourcePath, threshold, policyLine)
+		label := "skill"
+		if strings.HasSuffix(strings.ToLower(name), ".md") {
+			label = "agent"
+		}
+		subtitle := auditHeaderSubtitle(fmt.Sprintf("Scanning %s: %s", label, name), mode, sourcePath, threshold, policyLine)
 		summaryLines := buildAuditSummaryLines(summary)
 		minWidth := auditHeaderMinWidth(subtitle)
 		ui.HeaderBoxWithMinWidth(auditHeaderTitle(mode), subtitle, minWidth)

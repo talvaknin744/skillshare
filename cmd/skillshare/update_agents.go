@@ -12,6 +12,7 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/install"
 	"skillshare/internal/oplog"
+	"skillshare/internal/resource"
 	"skillshare/internal/ui"
 )
 
@@ -47,6 +48,18 @@ func cmdUpdateAgents(args []string, cfg *config.Config, start time.Time) error {
 		results = filterAgentCheckResults(results, opts.names)
 		if len(results) == 0 {
 			return fmt.Errorf("no matching agents found: %s", strings.Join(opts.names, ", "))
+		}
+	}
+
+	// Filter by group if specified
+	if len(opts.groups) > 0 {
+		var err error
+		results, err = filterAgentResultsByGroups(results, opts.groups, agentsDir)
+		if err != nil {
+			return err
+		}
+		if len(results) == 0 {
+			return fmt.Errorf("no agents found in group(s): %s", strings.Join(opts.groups, ", "))
 		}
 	}
 
@@ -178,6 +191,7 @@ func reinstallAgent(agentsDir string, r check.AgentCheckResult) error {
 // updateAgentArgs holds parsed arguments for agent update.
 type updateAgentArgs struct {
 	names      []string
+	groups     []string
 	all        bool
 	dryRun     bool
 	jsonOutput bool
@@ -195,7 +209,11 @@ func parseUpdateAgentArgs(args []string) (*updateAgentArgs, bool, error) {
 		case arg == "--json":
 			opts.jsonOutput = true
 		case arg == "--group" || arg == "-G":
-			return nil, false, fmt.Errorf("--group is not supported for agents")
+			i++
+			if i >= len(args) {
+				return nil, false, fmt.Errorf("--group requires a value")
+			}
+			opts.groups = append(opts.groups, args[i])
 		case arg == "--help" || arg == "-h":
 			return nil, true, nil
 		case strings.HasPrefix(arg, "-"):
@@ -205,11 +223,11 @@ func parseUpdateAgentArgs(args []string) (*updateAgentArgs, bool, error) {
 		}
 	}
 
-	if !opts.all && len(opts.names) == 0 {
-		return nil, false, fmt.Errorf("specify agent name(s) or --all")
+	if !opts.all && len(opts.names) == 0 && len(opts.groups) == 0 {
+		return nil, false, fmt.Errorf("specify agent name(s), --group, or --all")
 	}
-	if opts.all && len(opts.names) > 0 {
-		return nil, false, fmt.Errorf("--all cannot be used with agent names")
+	if opts.all && (len(opts.names) > 0 || len(opts.groups) > 0) {
+		return nil, false, fmt.Errorf("--all cannot be used with agent names or --group")
 	}
 
 	return opts, false, nil
@@ -219,6 +237,8 @@ func filterAgentCheckResults(results []check.AgentCheckResult, names []string) [
 	nameSet := make(map[string]bool, len(names))
 	for _, n := range names {
 		nameSet[n] = true
+		// Also index without .md suffix so "demo/tutor.md" matches "demo/tutor"
+		nameSet[strings.TrimSuffix(n, ".md")] = true
 	}
 	var filtered []check.AgentCheckResult
 	for _, r := range results {
@@ -228,6 +248,60 @@ func filterAgentCheckResults(results []check.AgentCheckResult, names []string) [
 		}
 	}
 	return filtered
+}
+
+// validateAgentGroups checks that each group name corresponds to a subdirectory
+// under agentsDir. Returns normalized group names (trailing "/" stripped).
+func validateAgentGroups(groups []string, agentsDir string) ([]string, error) {
+	normalized := make([]string, len(groups))
+	for i, group := range groups {
+		group = strings.TrimSuffix(group, "/")
+		info, err := os.Stat(filepath.Join(agentsDir, group))
+		if err != nil || !info.IsDir() {
+			return nil, fmt.Errorf("agent group %q not found in %s", group, agentsDir)
+		}
+		normalized[i] = group
+	}
+	return normalized, nil
+}
+
+func matchesAnyGroup(name string, groups []string) bool {
+	for _, group := range groups {
+		if strings.HasPrefix(name, group+"/") {
+			return true
+		}
+	}
+	return false
+}
+
+// filterAgentResultsByGroups filters agent check results to those in the given groups.
+func filterAgentResultsByGroups(results []check.AgentCheckResult, groups []string, agentsDir string) ([]check.AgentCheckResult, error) {
+	groups, err := validateAgentGroups(groups, agentsDir)
+	if err != nil {
+		return nil, err
+	}
+	var filtered []check.AgentCheckResult
+	for _, r := range results {
+		if matchesAnyGroup(r.Name, groups) {
+			filtered = append(filtered, r)
+		}
+	}
+	return filtered, nil
+}
+
+// filterDiscoveredAgentsByGroups filters discovered agents to those in the given groups.
+func filterDiscoveredAgentsByGroups(discovered []resource.DiscoveredResource, groups []string, agentsDir string) ([]resource.DiscoveredResource, error) {
+	groups, err := validateAgentGroups(groups, agentsDir)
+	if err != nil {
+		return nil, err
+	}
+	var filtered []resource.DiscoveredResource
+	for _, d := range discovered {
+		if matchesAnyGroup(strings.TrimSuffix(d.RelPath, ".md"), groups) {
+			filtered = append(filtered, d)
+		}
+	}
+	return filtered, nil
 }
 
 func logUpdateAgentOp(cfgPath string, total, updated, failed int, dryRun bool, start time.Time) {
@@ -304,6 +378,17 @@ func cmdUpdateAgentsProject(args []string, projectRoot string, start time.Time) 
 		results = filterAgentCheckResults(results, opts.names)
 		if len(results) == 0 {
 			return fmt.Errorf("no matching agents found: %s", strings.Join(opts.names, ", "))
+		}
+	}
+
+	if len(opts.groups) > 0 {
+		var err error
+		results, err = filterAgentResultsByGroups(results, opts.groups, agentsDir)
+		if err != nil {
+			return err
+		}
+		if len(results) == 0 {
+			return fmt.Errorf("no agents found in group(s): %s", strings.Join(opts.groups, ", "))
 		}
 	}
 
