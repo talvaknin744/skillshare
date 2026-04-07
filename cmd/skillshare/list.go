@@ -593,7 +593,7 @@ func cmdList(args []string) error {
 			}
 			return listLoadResult{skills: toSkillItems(allEntries), totalCount: total}
 		}
-		action, skillName, err := runListTUI(loadFn, "global", cfg.Source, cfg.Targets)
+		action, skillName, skillKind, err := runListTUI(loadFn, "global", cfg.Source, cfg.EffectiveAgentsSource(), cfg.Targets)
 		if err != nil {
 			return err
 		}
@@ -606,10 +606,19 @@ func cmdList(args []string) error {
 			ui.Info("No %s installed", resourceLabel)
 			return nil
 		case "audit":
+			if skillKind == "agent" {
+				return cmdAudit([]string{"agents", "-g", skillName})
+			}
 			return cmdAudit([]string{"-g", skillName})
 		case "update":
+			if skillKind == "agent" {
+				return cmdUpdate([]string{"agents", "-g", skillName})
+			}
 			return cmdUpdate([]string{"-g", skillName})
 		case "uninstall":
+			if skillKind == "agent" {
+				return cmdUninstall([]string{"agents", "-g", "--force", skillName})
+			}
 			return cmdUninstall([]string{"-g", "--force", skillName})
 		}
 		return nil

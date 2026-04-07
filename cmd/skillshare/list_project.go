@@ -54,7 +54,7 @@ func cmdListProject(root string, opts listOptions, kind resourceKindFilter) erro
 			sortSkillEntries(allEntries, sortBy)
 			return listLoadResult{skills: toSkillItems(allEntries), totalCount: total}
 		}
-		action, skillName, err := runListTUI(loadFn, "project", skillsSource, targets)
+		action, skillName, skillKind, err := runListTUI(loadFn, "project", skillsSource, agentsSource, targets)
 		if err != nil {
 			return err
 		}
@@ -66,11 +66,21 @@ func cmdListProject(root string, opts listOptions, kind resourceKindFilter) erro
 			}
 			return nil
 		case "audit":
+			if skillKind == "agent" {
+				return cmdAudit([]string{"agents", "-p", skillName})
+			}
 			return cmdAudit([]string{"-p", skillName})
 		case "update":
+			if skillKind == "agent" {
+				_, updateErr := cmdUpdateProject([]string{"agents", skillName}, root)
+				return updateErr
+			}
 			_, updateErr := cmdUpdateProject([]string{skillName}, root)
 			return updateErr
 		case "uninstall":
+			if skillKind == "agent" {
+				return cmdUninstallProject([]string{"agents", "--force", skillName}, root)
+			}
 			return cmdUninstallProject([]string{"--force", skillName}, root)
 		}
 		return nil

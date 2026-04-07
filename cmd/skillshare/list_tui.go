@@ -62,9 +62,10 @@ type detailData struct {
 type listTUIModel struct {
 	list        list.Model
 	totalCount  int
-	modeLabel   string // "global" or "project"
-	sourcePath  string
-	targets     map[string]config.TargetConfig
+	modeLabel        string // "global" or "project"
+	sourcePath       string
+	agentsSourcePath string
+	targets          map[string]config.TargetConfig
 	quitting    bool
 	action      string // "audit", "update", "uninstall", or "" (normal quit)
 	termWidth   int
@@ -106,7 +107,7 @@ type listTUIModel struct {
 // newListTUIModel creates a new TUI model.
 // When loadFn is non-nil, skills are loaded asynchronously inside the TUI (spinner shown).
 // When loadFn is nil, skills/totalCount are used directly (pre-loaded).
-func newListTUIModel(loadFn listLoadFn, skills []skillItem, totalCount int, modeLabel, sourcePath string, targets map[string]config.TargetConfig) listTUIModel {
+func newListTUIModel(loadFn listLoadFn, skills []skillItem, totalCount int, modeLabel, sourcePath, agentsSourcePath string, targets map[string]config.TargetConfig) listTUIModel {
 	delegate := listSkillDelegate{}
 
 	// Build initial item set (empty if async loading)
@@ -139,11 +140,12 @@ func newListTUIModel(loadFn listLoadFn, skills []skillItem, totalCount int, mode
 	fi.Placeholder = "filter or t:tracked g:group r:repo k:kind"
 
 	m := listTUIModel{
-		list:        l,
-		totalCount:  totalCount,
-		modeLabel:   modeLabel,
-		sourcePath:  sourcePath,
-		targets:     targets,
+		list:             l,
+		totalCount:       totalCount,
+		modeLabel:        modeLabel,
+		sourcePath:       sourcePath,
+		agentsSourcePath: agentsSourcePath,
+		targets:          targets,
 		detailCache: make(map[string]*detailData),
 		loading:     loadFn != nil,
 		loadSpinner: sp,
@@ -913,36 +915,38 @@ func (m listTUIModel) findSyncedTargets(e skillEntry) []string {
 
 // runListTUI starts the bubbletea TUI for the skill list.
 // When loadFn is non-nil, data is loaded asynchronously inside the TUI (no blank screen).
-// Returns (action, skillName, error). action is "" on normal quit (q/ctrl+c).
-func runListTUI(loadFn listLoadFn, modeLabel, sourcePath string, targets map[string]config.TargetConfig) (string, string, error) {
-	model := newListTUIModel(loadFn, nil, 0, modeLabel, sourcePath, targets)
+// Returns (action, skillName, skillKind, error). action is "" on normal quit (q/ctrl+c).
+func runListTUI(loadFn listLoadFn, modeLabel, sourcePath, agentsSourcePath string, targets map[string]config.TargetConfig) (string, string, string, error) {
+	model := newListTUIModel(loadFn, nil, 0, modeLabel, sourcePath, agentsSourcePath, targets)
 	p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	finalModel, err := p.Run()
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 
 	m, ok := finalModel.(listTUIModel)
 	if !ok || m.action == "" {
 		if m.loadErr != nil {
-			return "", "", m.loadErr
+			return "", "", "", m.loadErr
 		}
 		if m.emptyResult {
-			return "empty", "", nil
+			return "empty", "", "", nil
 		}
-		return "", "", nil
+		return "", "", "", nil
 	}
 
-	// Extract skill name from selected item
+	// Extract skill name and kind from selected item
 	var skillName string
+	var skillKind string
 	if item, ok := m.list.SelectedItem().(skillItem); ok {
 		if item.entry.RelPath != "" {
 			skillName = item.entry.RelPath
 		} else {
 			skillName = item.entry.Name
 		}
+		skillKind = item.entry.Kind
 	}
-	return m.action, skillName, nil
+	return m.action, skillName, skillKind, nil
 }
 
 // wordWrapLines splits text into lines that fit within maxWidth, breaking at word boundaries.

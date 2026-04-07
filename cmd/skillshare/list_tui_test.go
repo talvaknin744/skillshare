@@ -98,7 +98,7 @@ func TestListViewSplit_HeaderKeepsSkillNameWhenDetailScrolled(t *testing.T) {
 		},
 	}
 
-	m := newListTUIModel(nil, items, len(items), "global", t.TempDir(), nil)
+	m := newListTUIModel(nil, items, len(items), "global", t.TempDir(), "", nil)
 	m.termWidth = 120
 	m.termHeight = 30
 	m.detailScroll = 999
@@ -133,7 +133,7 @@ func TestApplyFilter_WithTags(t *testing.T) {
 		{entry: skillEntry{Name: "remote-a", RelPath: "remote-a", Source: "github.com/foo/bar"}},
 	}
 
-	m := newListTUIModel(nil, items, len(items), "global", t.TempDir(), nil)
+	m := newListTUIModel(nil, items, len(items), "global", t.TempDir(), "", nil)
 
 	// Filter by type:tracked — should match 2 items
 	m.filterText = "t:tracked"
