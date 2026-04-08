@@ -22,7 +22,7 @@
 </p>
 
 <p align="center">
-  <strong>One source of truth for AI CLI skills, rules, commands & more. Sync everywhere with one command — from personal to organization-wide.</strong><br>
+  <strong>One source of truth for AI CLI skills, agents, rules, commands & more. Sync everywhere with one command — from personal to organization-wide.</strong><br>
   Codex, Claude Code, OpenClaw, OpenCode & 50+ more.
 </p>
 
@@ -40,7 +40,7 @@
 </p>
 
 > [!NOTE]
-> **Latest**: [v0.18.3](https://github.com/runkids/skillshare/releases/tag/v0.18.3) — enable/disable skills, skills sub-key config, upgrade auto-sudo. [All releases →](https://github.com/runkids/skillshare/releases)
+> **Latest**: [v0.19.0](https://github.com/runkids/skillshare/releases/tag/v0.19.0) — agent management, filter studio, unified resources UI. [All releases →](https://github.com/runkids/skillshare/releases)
 
 ## Why skillshare
 
@@ -50,6 +50,7 @@ You edit in one, forget to copy to another, and lose track of what's where.
 skillshare fixes this:
 
 - **One source, every agent** — sync to Claude, Cursor, Codex & 50+ more with `skillshare sync`
+- **Agent management** — sync custom agents alongside skills to agent-capable targets
 - **More than skills** — manage rules, commands, prompts & any file-based resource with [extras](https://skillshare.runkids.cc/docs/reference/targets/configuration#extras)
 - **Install from anywhere** — GitHub, GitLab, Bitbucket, Azure DevOps, or any self-hosted Git
 - **Built-in security** — audit skills for prompt injection and data exfiltration before use
@@ -68,6 +69,7 @@ skillshare fixes this:
 ┌─────────────────────────────────────────────────────────────┐
 │                    Source Directory                         │
 │   ~/.config/skillshare/skills/    ← skills (SKILL.md)       │
+│   ~/.config/skillshare/agents/    ← agents                   │
 │   ~/.config/skillshare/extras/    ← rules, commands, etc.   │
 └─────────────────────────────────────────────────────────────┘
                               │ sync
@@ -78,10 +80,10 @@ skillshare fixes this:
        └───────────┘   └───────────┘   └───────────┘
 ```
 
-| Platform | Skills Source | Extras Source | Link Type |
-|----------|---------------|---------------|-----------|
-| macOS/Linux | `~/.config/skillshare/skills/` | `~/.config/skillshare/extras/` | Symlinks |
-| Windows | `%AppData%\skillshare\skills\` | `%AppData%\skillshare\extras\` | NTFS Junctions (no admin required) |
+| Platform | Skills Source | Agents Source | Extras Source | Link Type |
+|----------|---------------|---------------|---------------|-----------|
+| macOS/Linux | `~/.config/skillshare/skills/` | `~/.config/skillshare/agents/` | `~/.config/skillshare/extras/` | Symlinks |
+| Windows | `%AppData%\skillshare\skills\` | `%AppData%\skillshare\agents\` | `%AppData%\skillshare\extras\` | NTFS Junctions (no admin required) |
 
 | | Imperative (install-per-command) | Declarative (skillshare) |
 |---|---|---|
@@ -178,6 +180,13 @@ skillshare audit
 
 ```bash
 skillshare init -p && skillshare sync
+```
+
+**Agents** —sync custom agents to agent-capable targets
+
+```bash
+skillshare sync agents            # sync agents only
+skillshare sync --all             # sync skills + agents + extras together
 ```
 
 **Extras** —manage rules, commands, prompts & more
