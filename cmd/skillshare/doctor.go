@@ -985,14 +985,14 @@ func checkExtras(extras []config.ExtraConfig, result *doctorResult, isProject bo
 		files, err := sync.DiscoverExtraFiles(sourceDir)
 		if err != nil {
 			result.addError()
-			ui.Error("%s: source directory missing (%s)", extra.Name, sourceDir)
+			ui.Error("%s: source missing (%s)", extra.Name, sourceDir)
 			details = append(details, fmt.Sprintf("%s: source directory missing", extra.Name))
 			hasIssue = true
 			continue
 		}
-		ui.Success("%s: source exists (%d files)", extra.Name, len(files))
 
 		reachable := 0
+		var unreachableTargets []string
 		for _, t := range extra.Targets {
 			targetPath := config.ExpandPath(t.Path)
 			if isProject && !filepath.IsAbs(targetPath) {
@@ -1001,14 +1001,17 @@ func checkExtras(extras []config.ExtraConfig, result *doctorResult, isProject bo
 			if _, err := os.Stat(filepath.Dir(targetPath)); err == nil {
 				reachable++
 			} else {
-				ui.Warning("%s: target %s not reachable (parent dir missing: %s)", extra.Name, t.Path, filepath.Dir(targetPath))
+				unreachableTargets = append(unreachableTargets, t.Path)
 			}
 		}
 		if reachable == len(extra.Targets) {
-			ui.Success("%s: all targets reachable (%d/%d)", extra.Name, reachable, len(extra.Targets))
+			ui.Success("%s: %d files, %d/%d targets OK", extra.Name, len(files), reachable, len(extra.Targets))
 		} else {
 			result.addWarning()
-			ui.Warning("%s: some targets unreachable (%d/%d)", extra.Name, reachable, len(extra.Targets))
+			ui.Warning("%s: %d files, %d/%d targets unreachable", extra.Name, len(files), len(extra.Targets)-reachable, len(extra.Targets))
+			for _, t := range unreachableTargets {
+				fmt.Printf("  %s%s (parent dir missing)%s\n", ui.Dim, t, ui.Reset)
+			}
 			details = append(details, fmt.Sprintf("%s: %d/%d targets unreachable", extra.Name, len(extra.Targets)-reachable, len(extra.Targets)))
 			hasIssue = true
 		}
