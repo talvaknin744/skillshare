@@ -414,7 +414,7 @@ func printTargetsStatus(cfg *config.Config, discovered []sync.DiscoveredSkill) e
 			agentPath := resolveAgentTargetPath(target, builtinAgents, name)
 			if agentPath != "" {
 				linked := countLinkedAgents(agentPath)
-				agentStatus := "synced"
+				agentStatus := "merged"
 				driftLabel := ""
 				if linked != agentCount && agentCount > 0 {
 					agentStatus = "drift"

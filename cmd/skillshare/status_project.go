@@ -271,7 +271,7 @@ func printProjectTargetsStatus(runtime *projectRuntime, discovered []sync.Discov
 			agentPath := resolveProjectAgentTargetPath(entry, builtinAgents, runtime.root)
 			if agentPath != "" {
 				linked := countLinkedAgents(agentPath)
-				agentStatus := "synced"
+				agentStatus := "merged"
 				driftLabel := ""
 				if linked != agentCount && agentCount > 0 {
 					agentStatus = "drift"

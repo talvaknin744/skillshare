@@ -60,7 +60,7 @@ func checkAgentTargetInline(name string, target config.TargetConfig, builtinAgen
 		return
 	}
 
-	msg := fmt.Sprintf("[merge] synced (%d/%d linked)", linked, agentCount)
+	msg := fmt.Sprintf("[merge] merged (%d/%d linked)", linked, agentCount)
 	fmt.Printf("  agents   %s%s%s\n", ui.Green, msg, ui.Reset)
 	result.addCheck("agent_target_"+name, checkPass,
 		fmt.Sprintf("Agent target %s: %d agents synced", name, linked), nil)
