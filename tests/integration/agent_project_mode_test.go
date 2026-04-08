@@ -60,9 +60,9 @@ func TestStatusProject_ShowsAgents(t *testing.T) {
 
 	result := sb.RunCLIInDir(projectDir, "status", "-p")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Source") // skill section
-	result.AssertAnyOutputContains(t, "Agents") // agent section
-	result.AssertAnyOutputContains(t, "1 agents")
+	result.AssertAnyOutputContains(t, "Source")    // source section
+	result.AssertAnyOutputContains(t, "1 agents")  // agents in source
+	result.AssertAnyOutputContains(t, "agents")    // agents sub-item in targets
 }
 
 func TestStatusProject_JSON_IncludesAgents(t *testing.T) {
@@ -253,7 +253,7 @@ func TestSyncProject_All_NestedAgentsSameBasename_FlattensAndStaysStable(t *test
 	}
 }
 
-// --- default -p (skills only, unchanged) ---
+// --- default -p shows both skills and agents ---
 
 func TestStatusProject_Default_ShowsBoth(t *testing.T) {
 	sb := testutil.NewSandbox(t)
@@ -261,9 +261,10 @@ func TestStatusProject_Default_ShowsBoth(t *testing.T) {
 
 	projectDir := setupProjectWithAgents(t, sb)
 
-	// status now always shows both skills and agents
+	// status always shows both skills and agents in unified layout
 	result := sb.RunCLIInDir(projectDir, "status", "-p")
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "Source")
-	result.AssertAnyOutputContains(t, "Agents")
+	result.AssertAnyOutputContains(t, "1 agents")  // agents in source section
+	result.AssertAnyOutputContains(t, "agents")    // agents sub-item in targets
 }

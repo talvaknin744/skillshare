@@ -3,7 +3,6 @@ package main
 import (
 	"skillshare/internal/config"
 	"skillshare/internal/resource"
-	"skillshare/internal/ui"
 )
 
 // statusJSONAgents is the agent section of status --json output.
@@ -20,43 +19,6 @@ type statusJSONAgentTarget struct {
 	Expected int    `json:"expected"`
 	Linked   int    `json:"linked"`
 	Drift    bool   `json:"drift"`
-}
-
-// printAgentStatus prints agent source and per-target agent status (text mode).
-func printAgentStatus(cfg *config.Config) {
-	agentsSource := cfg.EffectiveAgentsSource()
-
-	ui.Header("Agents")
-
-	exists := dirExists(agentsSource)
-	if !exists {
-		ui.Info("Source: %s (not created)", agentsSource)
-		return
-	}
-
-	agents, _ := resource.AgentKind{}.Discover(agentsSource)
-	ui.Info("Source: %s (%d agents)", agentsSource, len(agents))
-
-	// Per-target agent status
-	builtinAgents := config.DefaultAgentTargets()
-	var targets []string
-	for name := range cfg.Targets {
-		targets = append(targets, name)
-	}
-
-	for _, name := range targets {
-		agentPath := resolveAgentTargetPath(cfg.Targets[name], builtinAgents, name)
-		if agentPath == "" {
-			continue
-		}
-
-		linked := countLinkedAgents(agentPath)
-		driftLabel := ""
-		if linked != len(agents) && len(agents) > 0 {
-			driftLabel = ui.Yellow + " (drift)" + ui.Reset
-		}
-		ui.Info("  %s: %s (%d/%d linked)%s", name, agentPath, linked, len(agents), driftLabel)
-	}
 }
 
 // buildAgentStatusJSON builds the agents section for status --json output.
