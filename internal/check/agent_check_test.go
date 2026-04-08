@@ -80,6 +80,26 @@ func TestCheckAgents_Drifted(t *testing.T) {
 	}
 }
 
+func TestCheckAgents_InvalidCentralizedMetadata(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "tutor.md"), []byte("# Tutor"), 0644)
+	os.WriteFile(filepath.Join(dir, install.MetadataFileName), []byte("{invalid"), 0644)
+
+	results := CheckAgents(dir)
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	if results[0].Name != "tutor" {
+		t.Errorf("Name = %q, want %q", results[0].Name, "tutor")
+	}
+	if results[0].Status != "error" {
+		t.Errorf("Status = %q, want %q", results[0].Status, "error")
+	}
+	if results[0].Message == "" {
+		t.Fatal("expected error message for invalid centralized metadata")
+	}
+}
+
 func TestCheckAgents_NonExistentDir(t *testing.T) {
 	results := CheckAgents("/nonexistent/path")
 	if results != nil {

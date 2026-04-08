@@ -88,7 +88,7 @@ func findMetaEntry(skillPath string) *metaJSON {
 	skillName := filepath.Base(skillPath)
 	dir := filepath.Dir(skillPath)
 
-	for i := 0; i < 3 && dir != filepath.Dir(dir); i++ {
+	for i := 0; i < 10 && dir != filepath.Dir(dir); i++ {
 		data, err := os.ReadFile(filepath.Join(dir, metadataFileName))
 		if err == nil {
 			var store metadataStoreJSON

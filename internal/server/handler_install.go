@@ -157,6 +157,9 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 		installOpts.AuditProjectRoot = s.projectRoot
 	}
 	isAgent := body.Kind == "agent"
+	if isAgent {
+		installOpts.SourceDir = s.agentsSource()
+	}
 
 	for _, sel := range body.Skills {
 		skillName := sel.Name

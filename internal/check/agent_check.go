@@ -28,10 +28,20 @@ func CheckAgents(agentsDir string) []AgentCheckResult {
 	}
 
 	// Load centralized metadata store (auto-migrates any lingering sidecars).
-	store := install.LoadMetadataOrNew(agentsDir)
+	store, loadErr := install.LoadMetadata(agentsDir)
 
 	var results []AgentCheckResult
 	for _, d := range discovered {
+		if loadErr != nil {
+			// Surface corruption instead of silently treating all agents as local.
+			key := d.RelPath[:len(d.RelPath)-len(".md")]
+			results = append(results, AgentCheckResult{
+				Name:    key,
+				Status:  "error",
+				Message: "invalid metadata: " + loadErr.Error(),
+			})
+			continue
+		}
 		result := checkOneAgent(store, d.SourcePath, d.RelPath)
 		results = append(results, result)
 	}
