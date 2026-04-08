@@ -169,7 +169,7 @@ func resolveProjectAgentTargetPath(entry config.ProjectTargetEntry, builtinAgent
 }
 
 func printProjectSourceStatus(sourcePath, agentsSourcePath string, skillCount int, stats *skillignore.IgnoreStats) {
-	ui.Header("Source")
+	ui.Header("Source (project)")
 	info, err := os.Stat(sourcePath)
 	if err != nil {
 		ui.Error(".skillshare/skills/ (not found)")
