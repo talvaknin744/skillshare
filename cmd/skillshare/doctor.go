@@ -13,6 +13,7 @@ import (
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
 	"skillshare/internal/install"
+	"skillshare/internal/resource"
 	"skillshare/internal/skillignore"
 	"skillshare/internal/sync"
 	"skillshare/internal/trash"
@@ -187,10 +188,11 @@ func cmdDoctorProject(root string, jsonMode bool) error {
 	}
 
 	cfg := &config.Config{
-		Source:  rt.sourcePath,
-		Targets: rt.targets,
-		Mode:    "merge",
-		Audit:   rt.config.Audit,
+		Source:       rt.sourcePath,
+		AgentsSource: rt.agentsSourcePath,
+		Targets:      rt.targets,
+		Mode:         "merge",
+		Audit:        rt.config.Audit,
 	}
 
 	runDoctorChecks(cfg, result, true)
@@ -228,13 +230,11 @@ func runDoctorChecks(cfg *config.Config, result *doctorResult, isProject bool) {
 		checkGitStatus(cfg.Source, result)
 	}
 
-	checkAgentTargets(cfg, result)
-
 	fmt.Println() // visual break before skill validation
 	checkSkillsValidity(cfg.Source, result, discovered)
 	checkSkillIntegrity(result, discovered)
 	checkSkillTargetsField(result, discovered, targetNamesFromConfig(cfg.Targets))
-	targetCache := checkTargets(cfg, result)
+	targetCache := checkTargets(cfg, result, isProject)
 	printSymlinkCompatHint(cfg.Targets, cfg.Mode, isProject)
 	checkSyncDrift(cfg, result, discovered, targetCache)
 	checkBrokenSymlinks(cfg, result)
@@ -368,9 +368,22 @@ type cachedTargetStatus struct {
 	status      sync.TargetStatus
 }
 
-func checkTargets(cfg *config.Config, result *doctorResult) map[string]cachedTargetStatus {
+func checkTargets(cfg *config.Config, result *doctorResult, isProject bool) map[string]cachedTargetStatus {
 	ui.Header("Checking targets")
 	cache := make(map[string]cachedTargetStatus)
+
+	// Prepare agent context for per-target agent checks
+	agentsSource := cfg.EffectiveAgentsSource()
+	agentsExist := dirExists(agentsSource)
+	var agentCount int
+	if agentsExist {
+		agents, _ := resource.AgentKind{}.Discover(agentsSource)
+		agentCount = len(agents)
+	}
+	builtinAgents := config.DefaultAgentTargets()
+	if isProject {
+		builtinAgents = config.ProjectAgentTargets()
+	}
 
 	var details []string
 	hasError := false
@@ -406,6 +419,11 @@ func checkTargets(cfg *config.Config, result *doctorResult) map[string]cachedTar
 		} else {
 			cached := displayTargetStatus(name, target, cfg.Source, mode)
 			cache[name] = cached
+		}
+
+		// Agent sub-check for this target
+		if agentsExist {
+			checkAgentTargetInline(name, target, builtinAgents, agentCount, result)
 		}
 	}
 
