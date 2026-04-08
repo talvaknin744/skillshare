@@ -42,30 +42,30 @@ type diffExtraItem struct {
 }
 
 func (i diffExtraItem) Title() string {
-	icon := "✓"
-	if i.result.errMsg != "" {
+	r := i.result
+	var icon, desc string
+	if r.errMsg != "" {
 		icon = "✗"
-	} else if !i.result.synced {
+		desc = r.errMsg
+	} else if r.synced {
+		icon = "✓"
+		desc = "synced"
+	} else {
 		icon = "~"
+		desc = fmt.Sprintf("%d diff", len(r.items))
 	}
-	return fmt.Sprintf("%s %s → %s", icon, i.result.extraName, shortenPath(i.result.targetPath))
+	return fmt.Sprintf("%s %s → %s  %s", icon, r.extraName, shortenPath(r.targetPath), tc.Dim.Render(desc))
 }
 
-func (i diffExtraItem) Description() string {
-	if i.result.errMsg != "" {
-		return i.result.errMsg
-	}
-	if i.result.synced {
-		return fmt.Sprintf("synced (%s)", i.result.mode)
-	}
-	return fmt.Sprintf("%d difference(s) (%s)", len(i.result.items), i.result.mode)
-}
+func (i diffExtraItem) Description() string { return "" }
 
 func (i diffExtraItem) FilterValue() string { return i.result.extraName }
 
-// diffSeparatorItem is a non-selectable visual separator between skills and extras.
+// diffSeparatorItem is a non-selectable visual separator / group header.
 type diffSeparatorItem struct {
 	label string
+	count int  // 0 = no count displayed
+	space bool // true = empty spacer row
 }
 
 func (s diffSeparatorItem) Title() string       { return s.label }
@@ -96,7 +96,15 @@ func (d diffItemDelegate) Render(w io.Writer, m list.Model, index int, item list
 }
 
 func renderDiffSeparatorRow(w io.Writer, sep diffSeparatorItem, width int) {
-	label := tc.Dim.Render(sep.label)
+	if sep.space {
+		fmt.Fprint(w, "")
+		return
+	}
+	label := sep.label
+	if sep.count > 0 {
+		label += fmt.Sprintf(" (%d)", sep.count)
+	}
+	label = tc.Dim.Render(label)
 	lineWidth := width - lipgloss.Width(label) - 3
 	if lineWidth < 2 {
 		lineWidth = 2
@@ -129,17 +137,6 @@ func (i diffTargetItem) Title() string {
 	if r.synced {
 		return fmt.Sprintf("%s %s", tc.Green.Render("✓"), r.name)
 	}
-	return fmt.Sprintf("%s %s", tc.Yellow.Render("!"), r.name)
-}
-
-func (i diffTargetItem) Description() string {
-	r := i.result
-	if r.errMsg != "" {
-		return "error"
-	}
-	if r.synced {
-		return "synced"
-	}
 	var parts []string
 	if r.syncCount > 0 {
 		parts = append(parts, fmt.Sprintf("%d sync", r.syncCount))
@@ -147,11 +144,14 @@ func (i diffTargetItem) Description() string {
 	if r.localCount > 0 {
 		parts = append(parts, fmt.Sprintf("%d local", r.localCount))
 	}
-	if len(parts) == 0 {
-		return "0 diff(s)"
+	desc := "0 diff(s)"
+	if len(parts) > 0 {
+		desc = strings.Join(parts, ", ")
 	}
-	return strings.Join(parts, ", ")
+	return fmt.Sprintf("%s %s  %s", tc.Yellow.Render("!"), r.name, tc.Dim.Render(desc))
 }
+
+func (i diffTargetItem) Description() string { return "" }
 
 func (i diffTargetItem) FilterValue() string { return i.result.name }
 
@@ -211,19 +211,22 @@ func newDiffTUIModel(results []targetDiffResult, extrasSlice ...[]extraDiffResul
 		extras = extrasSlice[0]
 	}
 
-	listItems := make([]list.Item, len(sorted))
-	for i, r := range sorted {
-		listItems[i] = diffTargetItem{result: r}
+	// Build list items with group headers
+	var listItems []list.Item
+	listItems = append(listItems, diffSeparatorItem{label: "Targets", count: len(sorted)})
+	for _, r := range sorted {
+		listItems = append(listItems, diffTargetItem{result: r})
 	}
-	// Append extras with a separator
+	// Append extras with spacer + separator
 	if len(extras) > 0 {
-		listItems = append(listItems, diffSeparatorItem{label: "Extras"})
+		listItems = append(listItems, diffSeparatorItem{space: true})
+		listItems = append(listItems, diffSeparatorItem{label: "Extras", count: len(extras)})
 		for _, r := range extras {
 			listItems = append(listItems, diffExtraItem{result: r})
 		}
 	}
 
-	delegate := diffItemDelegate{inner: newPrefixDelegate(true)}
+	delegate := diffItemDelegate{inner: newPrefixDelegate(false)}
 
 	tl := list.New(listItems, delegate, 0, 0)
 	var errN, diffN, syncN int
@@ -253,6 +256,7 @@ func newDiffTUIModel(results []targetDiffResult, extrasSlice ...[]extraDiffResul
 	tl.SetFilteringEnabled(false)
 	tl.SetShowHelp(false)
 	tl.SetShowPagination(false)
+	skipDiffSeparator(&tl, 1)
 
 	fi := textinput.New()
 	fi.Prompt = "/ "
@@ -460,12 +464,14 @@ func (m diffTUIModel) handleDiffKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m *diffTUIModel) applyDiffFilter() {
 	needle := strings.ToLower(m.filterText)
 	if needle == "" {
-		items := make([]list.Item, len(m.allItems))
-		for i, r := range m.allItems {
-			items[i] = diffTargetItem{result: r}
+		var items []list.Item
+		items = append(items, diffSeparatorItem{label: "Targets", count: len(m.allItems)})
+		for _, r := range m.allItems {
+			items = append(items, diffTargetItem{result: r})
 		}
 		if len(m.allExtras) > 0 {
-			items = append(items, diffSeparatorItem{label: "Extras"})
+			items = append(items, diffSeparatorItem{space: true})
+			items = append(items, diffSeparatorItem{label: "Extras", count: len(m.allExtras)})
 			for _, r := range m.allExtras {
 				items = append(items, diffExtraItem{result: r})
 			}
@@ -473,6 +479,7 @@ func (m *diffTUIModel) applyDiffFilter() {
 		m.matchCount = len(items)
 		m.targetList.SetItems(items)
 		m.targetList.ResetSelected()
+		skipDiffSeparator(&m.targetList, 1)
 		m.cachedItems = nil // invalidate cache
 		return
 	}
