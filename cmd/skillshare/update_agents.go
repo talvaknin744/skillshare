@@ -150,7 +150,9 @@ func cmdUpdateAgents(args []string, cfg *config.Config, start time.Time) error {
 	return nil
 }
 
-// reinstallAgent re-installs an agent from its recorded source.
+// reinstallAgent re-installs an agent from its recorded source using
+// discovery + InstallAgentFromDiscovery (single-file copy), not the
+// directory-based skill installer.
 func reinstallAgent(agentsDir string, r check.AgentCheckResult) error {
 	metaFile := filepath.Join(agentsDir, r.Name+".skillshare-meta.json")
 
@@ -168,7 +170,11 @@ func reinstallAgent(agentsDir string, r check.AgentCheckResult) error {
 		return fmt.Errorf("no source in metadata")
 	}
 
-	// Parse and re-install from source
+	// Reconstruct the repo-level subdir for discovery.
+	// ParseSource(meta.Source) gives the full path from repo root
+	// (e.g. "pkg/agents/reviewer.md"). meta.Subdir stores the agent's
+	// path within the subdir scope (e.g. "agents/reviewer.md").
+	// The difference is the original repo subdir (e.g. "pkg").
 	source, parseErr := install.ParseSource(meta.Source)
 	if parseErr != nil {
 		return fmt.Errorf("invalid source: %w", parseErr)
@@ -176,15 +182,49 @@ func reinstallAgent(agentsDir string, r check.AgentCheckResult) error {
 	if meta.Branch != "" {
 		source.Branch = meta.Branch
 	}
+	repoSubdir := strings.TrimSuffix(source.Subdir, meta.Subdir)
+	repoSubdir = strings.TrimRight(repoSubdir, "/")
+	source.Subdir = repoSubdir
 
-	installOpts := install.InstallOptions{
-		Kind:       "agent",
-		AgentNames: []string{filepath.Base(r.Name)},
-		Force:      true,
-		Update:     true,
+	// Discover agents — use subdir-scoped discovery for monorepo installs.
+	var discovery *install.DiscoveryResult
+	var discErr error
+	if source.HasSubdir() {
+		discovery, discErr = install.DiscoverFromGitSubdir(source)
+	} else {
+		discovery, discErr = install.DiscoverFromGit(source)
+	}
+	if discErr != nil {
+		return fmt.Errorf("discovery failed: %w", discErr)
+	}
+	defer install.CleanupDiscovery(discovery)
+
+	// Find the specific agent by name
+	agentName := filepath.Base(r.Name)
+	var targetAgent *install.AgentInfo
+	for i, a := range discovery.Agents {
+		if a.Name == agentName {
+			targetAgent = &discovery.Agents[i]
+			break
+		}
+	}
+	if targetAgent == nil {
+		return fmt.Errorf("agent %q not found in repository", agentName)
 	}
 
-	_, installErr := install.Install(source, agentsDir, installOpts)
+	// For grouped agents (r.Name contains "/", e.g. "tools/reviewer"),
+	// reconstruct the correct destination subdirectory so the file lands
+	// at agents/tools/reviewer.md rather than agents/reviewer.md.
+	destDir := agentsDir
+	if dir := filepath.Dir(r.Name); dir != "." {
+		destDir = filepath.Join(agentsDir, dir)
+	}
+
+	installOpts := install.InstallOptions{
+		Kind:  "agent",
+		Force: true,
+	}
+	_, installErr := install.InstallAgentFromDiscovery(discovery, *targetAgent, destDir, installOpts)
 	return installErr
 }
 
