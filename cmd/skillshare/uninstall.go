@@ -397,7 +397,7 @@ func (s uninstallTypeSummary) details() string {
 }
 
 // displayUninstallInfo shows information about the skill to be uninstalled
-func displayUninstallInfo(target *uninstallTarget) {
+func displayUninstallInfo(target *uninstallTarget, store *install.MetadataStore) {
 	if target.isTrackedRepo {
 		ui.Header("Uninstalling tracked repository")
 		ui.Info("Type: tracked repository")
@@ -412,9 +412,11 @@ func displayUninstallInfo(target *uninstallTarget) {
 		} else {
 			ui.Header("Uninstalling skill")
 		}
-		if meta, err := install.ReadMeta(target.path); err == nil && meta != nil {
-			ui.Info("Source: %s", meta.Source)
-			ui.Info("Installed: %s", meta.InstalledAt.Format("2006-01-02 15:04"))
+		if entry := store.Get(target.name); entry != nil {
+			ui.Info("Source: %s", entry.Source)
+			if !entry.InstalledAt.IsZero() {
+				ui.Info("Installed: %s", entry.InstalledAt.Format("2006-01-02 15:04"))
+			}
 		}
 	}
 	ui.Info("Name: %s", target.name)
@@ -598,6 +600,12 @@ func cmdUninstall(args []string) error {
 		return err
 	}
 
+	// Load centralized metadata store for display/reinstall hints.
+	skillsStore, _ := install.LoadMetadataWithMigration(cfg.Source, "")
+	if skillsStore == nil {
+		skillsStore = install.NewMetadataStore()
+	}
+
 	// --- Phase 1: RESOLVE ---
 	var targets []*uninstallTarget
 	seen := map[string]bool{} // dedup by path
@@ -732,7 +740,7 @@ func cmdUninstall(args []string) error {
 	if opts.jsonOutput {
 		// Skip display in JSON mode
 	} else if single {
-		displayUninstallInfo(targets[0])
+		displayUninstallInfo(targets[0], skillsStore)
 	} else {
 		ui.Header(fmt.Sprintf("Uninstalling %d %s", len(targets), summary.noun()))
 		if len(targets) > 20 {

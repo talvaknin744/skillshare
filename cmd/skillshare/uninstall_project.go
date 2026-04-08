@@ -89,6 +89,12 @@ func cmdUninstallProject(args []string, root string) error {
 	sourceDir := filepath.Join(root, ".skillshare", "skills")
 	trashDir := trash.ProjectTrashDir(root)
 
+	// Load centralized metadata store for display/reinstall hints.
+	skillsStore, _ := install.LoadMetadataWithMigration(sourceDir, "")
+	if skillsStore == nil {
+		skillsStore = install.NewMetadataStore()
+	}
+
 	// Backward compat: ensure operational dirs are gitignored for projects created before v0.17.3.
 	_ = ensureProjectGitignore(root, false)
 
@@ -172,7 +178,7 @@ func cmdUninstallProject(args []string, root string) error {
 	single := len(targets) == 1
 	summary := summarizeUninstallTargets(targets)
 	if single {
-		displayUninstallInfo(targets[0])
+		displayUninstallInfo(targets[0], skillsStore)
 	} else {
 		ui.Header(fmt.Sprintf("Uninstalling %d %s", len(targets), summary.noun()))
 		if len(targets) > 20 {
