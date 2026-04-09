@@ -398,7 +398,6 @@ Arguments:
   path                 Existing file/directory path to scan (optional)
 
 Options:
-  --all                Scan both skills and agents
   --group, -G <name>   Scan all skills in a group (repeatable)
   -p, --project        Use project-level skills
   -g, --global         Use global skills
@@ -434,6 +433,5 @@ Examples:
   skillshare audit --format markdown         # Output Markdown report (for GitHub Issues/PRs)
   skillshare audit --json                    # Same as --format json (deprecated)
   skillshare audit -p --init-rules           # Create project custom rules file
-  skillshare audit agents                    # Scan agents only
-  skillshare audit --all                     # Scan skills + agents`)
+  skillshare audit agents                    # Scan agents only`)
 }

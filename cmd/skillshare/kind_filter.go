@@ -97,6 +97,28 @@ func (k resourceKindFilter) String() string {
 	}
 }
 
+// Noun returns the pluralized resource noun for display.
+// Noun(1) → "skill"/"agent", Noun(2+) → "skills"/"agents".
+func (k resourceKindFilter) Noun(count int) string {
+	switch k {
+	case kindAgents:
+		if count == 1 {
+			return "agent"
+		}
+		return "agents"
+	default:
+		if count == 1 {
+			return "skill"
+		}
+		return "skills"
+	}
+}
+
+// SingularNoun returns the singular resource noun (no count needed).
+func (k resourceKindFilter) SingularNoun() string {
+	return k.Noun(1)
+}
+
 func (k resourceKindFilter) IncludesSkills() bool {
 	return k == kindAll || k == kindSkills
 }

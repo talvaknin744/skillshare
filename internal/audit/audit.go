@@ -130,6 +130,7 @@ type Finding struct {
 // Result holds all findings for a single skill.
 type Result struct {
 	SkillName      string      `json:"skillName"`
+	Kind           string      `json:"kind,omitempty"` // "skill" or "agent" — set by caller
 	Findings       []Finding   `json:"findings"`
 	RiskScore      int         `json:"riskScore"`
 	RiskLabel      string      `json:"riskLabel"` // "clean", "low", "medium", "high", "critical"
