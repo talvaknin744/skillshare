@@ -515,6 +515,8 @@ function TriagePanel({
 
 function SkillAuditCard({ result }: { result: AuditResult; index?: number }) {
   const maxSeverity = getMaxSeverity(result.findings);
+  const iconColor = riskColor(result.riskLabel);
+  const iconBg = riskBgColor(result.riskLabel);
 
   return (
     <Card className="!overflow-clip">
@@ -526,14 +528,8 @@ function SkillAuditCard({ result }: { result: AuditResult; index?: number }) {
           {/* Left: skill icon + name + issue count */}
           <div className="flex items-center gap-2.5 min-w-0">
             <div
-              className={`w-8 h-8 flex items-center justify-center border-2 shrink-0 ${
-                result.isBlocked
-                  ? 'bg-danger-light border-danger text-danger'
-                  : maxSeverity === 'HIGH' || maxSeverity === 'CRITICAL'
-                    ? 'bg-warning-light border-warning text-warning'
-                    : 'bg-info-light border-blue text-blue'
-              }`}
-              style={{ borderRadius: radius.sm }}
+              className="w-8 h-8 flex items-center justify-center border-2 shrink-0"
+              style={{ borderRadius: radius.sm, borderColor: iconColor, backgroundColor: iconBg, color: iconColor }}
             >
               {result.isBlocked ? (
                 <ShieldAlert size={16} strokeWidth={2.5} />
