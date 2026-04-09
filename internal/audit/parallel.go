@@ -21,8 +21,9 @@ func workerCount() int {
 
 // SkillInput describes a skill to scan.
 type SkillInput struct {
-	Name string
-	Path string
+	Name   string
+	Path   string
+	IsFile bool // true for individual file scanning (agents)
 }
 
 // ScanOutput holds the result of scanning a single skill.
@@ -48,23 +49,30 @@ func ParallelScan(skills []SkillInput, projectRoot string, onDone func(), regist
 	for i, sk := range skills {
 		wg.Add(1)
 		sem <- struct{}{}
-		go func(idx int, path string) {
+		go func(idx int, input SkillInput) {
 			defer wg.Done()
 			defer func() { <-sem }()
 			start := time.Now()
 			var res *Result
 			var err error
-			if registry != nil {
+			if input.IsFile {
+				// Agent: scan individual file
 				if projectRoot != "" {
-					res, err = ScanSkillFilteredForProject(path, projectRoot, registry)
+					res, err = ScanFileForProject(input.Path, projectRoot)
 				} else {
-					res, err = ScanSkillFiltered(path, registry)
+					res, err = ScanFile(input.Path)
+				}
+			} else if registry != nil {
+				if projectRoot != "" {
+					res, err = ScanSkillFilteredForProject(input.Path, projectRoot, registry)
+				} else {
+					res, err = ScanSkillFiltered(input.Path, registry)
 				}
 			} else {
 				if projectRoot != "" {
-					res, err = ScanSkillForProject(path, projectRoot)
+					res, err = ScanSkillForProject(input.Path, projectRoot)
 				} else {
-					res, err = ScanSkill(path)
+					res, err = ScanSkill(input.Path)
 				}
 			}
 			outputs[idx] = ScanOutput{
@@ -75,7 +83,7 @@ func ParallelScan(skills []SkillInput, projectRoot string, onDone func(), regist
 			if onDone != nil {
 				onDone()
 			}
-		}(i, sk.Path)
+		}(i, sk)
 	}
 	wg.Wait()
 

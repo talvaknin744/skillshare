@@ -11,6 +11,7 @@ import (
 	"skillshare/internal/audit"
 	"skillshare/internal/config"
 	"skillshare/internal/oplog"
+	"skillshare/internal/resource"
 	"skillshare/internal/sync"
 	"skillshare/internal/ui"
 	"skillshare/internal/utils"
@@ -487,6 +488,32 @@ func toAuditInputs(skills []auditSkillRef) []audit.SkillInput {
 	return inputs
 }
 
+func toAgentAuditInputs(agents []auditSkillRef) []audit.SkillInput {
+	inputs := make([]audit.SkillInput, len(agents))
+	for i, a := range agents {
+		inputs[i] = audit.SkillInput{Name: a.name, Path: a.path, IsFile: true}
+	}
+	return inputs
+}
+
+func collectInstalledAgentPaths(agentsSourcePath string) ([]auditSkillRef, error) {
+	if agentsSourcePath == "" {
+		return nil, nil
+	}
+	if _, err := os.Stat(agentsSourcePath); os.IsNotExist(err) {
+		return nil, nil
+	}
+	discovered, err := resource.AgentKind{}.Discover(agentsSourcePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to discover agents: %w", err)
+	}
+	var agentPaths []auditSkillRef
+	for _, d := range resource.ActiveAgents(discovered) {
+		agentPaths = append(agentPaths, auditSkillRef{name: d.FlatName, path: d.AbsPath})
+	}
+	return agentPaths, nil
+}
+
 func scanPathTarget(targetPath, projectRoot string, registry *audit.Registry) (*audit.Result, error) {
 	info, err := os.Stat(targetPath)
 	if err != nil {
@@ -509,12 +536,18 @@ func auditInstalled(sourcePath, agentsSourcePath, mode, projectRoot, threshold s
 		Threshold: threshold,
 	}
 
-	// Phase 0: discover skills.
+	// Phase 0: discover skills/agents.
 	var spinner *ui.Spinner
 	if !jsonOutput {
 		spinner = ui.StartSpinner(fmt.Sprintf("Discovering %s...", kind.Noun(2)))
 	}
-	skillPaths, err := collectInstalledSkillPaths(sourcePath)
+	var skillPaths []auditSkillRef
+	var err error
+	if kind == kindAgents {
+		skillPaths, err = collectInstalledAgentPaths(sourcePath)
+	} else {
+		skillPaths, err = collectInstalledSkillPaths(sourcePath)
+	}
 	if err != nil {
 		if spinner != nil {
 			spinner.Fail("Discovery failed")
@@ -565,7 +598,13 @@ func auditInstalled(sourcePath, agentsSourcePath, mode, projectRoot, threshold s
 			progressBar.Increment()
 		}
 	}
-	scanResults := audit.ParallelScan(toAuditInputs(skillPaths), projectRoot, onDone, reg)
+	var scanInputs []audit.SkillInput
+	if kind == kindAgents {
+		scanInputs = toAgentAuditInputs(skillPaths)
+	} else {
+		scanInputs = toAuditInputs(skillPaths)
+	}
+	scanResults := audit.ParallelScan(scanInputs, projectRoot, onDone, reg)
 	if progressBar != nil {
 		progressBar.Stop()
 	}
@@ -633,7 +672,13 @@ func auditFiltered(sourcePath, agentsSourcePath string, names, groups []string, 
 		Threshold: threshold,
 	}
 
-	allSkills, err := collectInstalledSkillPaths(sourcePath)
+	var allSkills []auditSkillRef
+	var err error
+	if kind == kindAgents {
+		allSkills, err = collectInstalledAgentPaths(sourcePath)
+	} else {
+		allSkills, err = collectInstalledSkillPaths(sourcePath)
+	}
 	if err != nil {
 		return nil, base, err
 	}
@@ -712,7 +757,13 @@ func auditFiltered(sourcePath, agentsSourcePath string, names, groups []string, 
 			progressBar.Increment()
 		}
 	}
-	scanResults := audit.ParallelScan(toAuditInputs(matched), projectRoot, onDone, reg)
+	var scanInputs []audit.SkillInput
+	if kind == kindAgents {
+		scanInputs = toAgentAuditInputs(matched)
+	} else {
+		scanInputs = toAuditInputs(matched)
+	}
+	scanResults := audit.ParallelScan(scanInputs, projectRoot, onDone, reg)
 	if progressBar != nil {
 		progressBar.Stop()
 	}

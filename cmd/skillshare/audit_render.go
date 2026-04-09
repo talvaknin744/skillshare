@@ -85,9 +85,21 @@ func launchAuditTUIWithTabs(results []*audit.Result, scanOutputs []audit.ScanOut
 	}
 
 	if otherSource != "" {
-		otherPaths, err := collectInstalledSkillPaths(otherSource)
+		var otherPaths []auditSkillRef
+		var err error
+		if otherKind == "agent" {
+			otherPaths, err = collectInstalledAgentPaths(otherSource)
+		} else {
+			otherPaths, err = collectInstalledSkillPaths(otherSource)
+		}
+		var otherInputs []audit.SkillInput
+		if otherKind == "agent" {
+			otherInputs = toAgentAuditInputs(otherPaths)
+		} else {
+			otherInputs = toAuditInputs(otherPaths)
+		}
 		if err == nil && len(otherPaths) > 0 {
-			otherScanResults := audit.ParallelScan(toAuditInputs(otherPaths), ctx.projectRoot, nil, ctx.registry)
+			otherScanResults := audit.ParallelScan(otherInputs, ctx.projectRoot, nil, ctx.registry)
 			for i := range otherPaths {
 				if i < len(otherScanResults) {
 					sr := otherScanResults[i]

@@ -69,6 +69,19 @@ type skillEntry struct {
 	path string
 }
 
+// discoverAuditAgents discovers agents (individual .md files) for audit scanning.
+func discoverAuditAgents(source string) ([]skillEntry, error) {
+	discovered, err := resource.AgentKind{}.Discover(source)
+	if err != nil {
+		return nil, err
+	}
+	var agents []skillEntry
+	for _, d := range resource.ActiveAgents(discovered) {
+		agents = append(agents, skillEntry{name: d.FlatName, path: d.AbsPath})
+	}
+	return agents, nil
+}
+
 // discoverAuditSkills discovers and deduplicates skills for audit scanning.
 func discoverAuditSkills(source string) ([]skillEntry, error) {
 	discovered, err := sync.DiscoverSourceSkills(source)
@@ -251,19 +264,19 @@ func processAuditResults(skills []skillEntry, scanned []audit.ScanOutput, policy
 	}
 }
 
-// resolveAuditSource returns the source directory and result kind based on ?kind query param.
-func (s *Server) resolveAuditSource(r *http.Request) (string, string) {
+// resolveAuditSource returns the source directory, result kind label, and whether agents are being scanned.
+func (s *Server) resolveAuditSource(r *http.Request) (string, string, bool) {
 	kind := r.URL.Query().Get("kind")
 	if kind == "agents" {
-		return s.agentsSource(), "agent"
+		return s.agentsSource(), "agent", true
 	}
-	return s.cfg.Source, "skill"
+	return s.cfg.Source, "skill", false
 }
 
 func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
-	source, resultKind := s.resolveAuditSource(r)
+	source, resultKind, isAgents := s.resolveAuditSource(r)
 	policy := s.auditPolicy()
 	projectRoot := s.projectRoot
 	cfgPath := s.configPath()
@@ -273,7 +286,13 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 
 	start := time.Now()
 
-	skills, err := discoverAuditSkills(source)
+	var skills []skillEntry
+	var err error
+	if isAgents {
+		skills, err = discoverAuditAgents(source)
+	} else {
+		skills, err = discoverAuditSkills(source)
+	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -283,7 +302,16 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 	if !isProjectMode {
 		auditProjectRoot = ""
 	}
-	scanned := audit.ParallelScan(skillsToAuditInputs(skills), auditProjectRoot, nil, nil)
+	var inputs []audit.SkillInput
+	if isAgents {
+		inputs = make([]audit.SkillInput, len(skills))
+		for i, s := range skills {
+			inputs[i] = audit.SkillInput{Name: s.name, Path: s.path, IsFile: true}
+		}
+	} else {
+		inputs = skillsToAuditInputs(skills)
+	}
+	scanned := audit.ParallelScan(inputs, auditProjectRoot, nil, nil)
 
 	agg := processAuditResults(skills, scanned, policy)
 	for i := range agg.Results {
