@@ -142,7 +142,7 @@ func cmdDoctorGlobal(jsonMode bool) error {
 	ui.Header("Storage")
 	checkBackupStatus(result, false, backup.BackupDir())
 	checkTrashStatus(result, trash.TrashDir())
-	checkVersionDoctor(cfg, result)
+	checkVersionDoctor(cfg, result, false)
 
 	if jsonMode {
 		return finalizeDoctorJSON(restoreUI, result, updateCh)
@@ -200,7 +200,7 @@ func cmdDoctorProject(root string, jsonMode bool) error {
 	ui.Header("Storage")
 	checkBackupStatus(result, true, "")
 	checkTrashStatus(result, trash.ProjectTrashDir(root))
-	checkVersionDoctor(cfg, result)
+	checkVersionDoctor(cfg, result, true)
 
 	if jsonMode {
 		return finalizeDoctorJSON(restoreUI, result, updateCh)
@@ -375,10 +375,9 @@ func checkTargets(cfg *config.Config, result *doctorResult, isProject bool) map[
 	// Prepare agent context for per-target agent checks
 	agentsSource := cfg.EffectiveAgentsSource()
 	agentsExist := dirExists(agentsSource)
-	var agentCount int
+	var discoveredAgents []resource.DiscoveredResource
 	if agentsExist {
-		agents, _ := resource.AgentKind{}.Discover(agentsSource)
-		agentCount = len(agents)
+		discoveredAgents, _ = resource.AgentKind{}.Discover(agentsSource)
 	}
 	builtinAgents := config.DefaultAgentTargets()
 	if isProject {
@@ -426,7 +425,7 @@ func checkTargets(cfg *config.Config, result *doctorResult, isProject bool) map[
 
 		// Agent sub-check for this target
 		if agentsExist {
-			checkAgentTargetInline(name, target, builtinAgents, agentCount, result)
+			checkAgentTargetInline(name, target, builtinAgents, discoveredAgents, result)
 		}
 	}
 
@@ -1134,22 +1133,34 @@ func formatBytes(b int64) string {
 }
 
 // checkVersionDoctor checks CLI and skill versions
-func checkVersionDoctor(cfg *config.Config, result *doctorResult) {
+func checkVersionDoctor(cfg *config.Config, result *doctorResult, isProject bool) {
 	ui.Header("Version")
 
 	// CLI version
 	ui.Success("CLI: %s", version)
 	result.addCheck("cli_version", checkPass, fmt.Sprintf("CLI: %s", version), nil)
 
-	// Skill version (reads metadata.version from SKILL.md)
+	// Skill version: try SKILL.md frontmatter first, then metadata store
 	localVersion := versioncheck.ReadLocalSkillVersion(cfg.Source)
 	if localVersion == "" {
-		// Distinguish "file not found" from "version field missing"
+		// Try metadata store (tracks installed version even without metadata.version in SKILL.md)
+		store := install.LoadMetadataOrNew(cfg.Source)
+		if entry := store.Get("skillshare"); entry != nil && entry.Version != "" {
+			localVersion = strings.TrimPrefix(entry.Version, "v")
+		}
+	}
+
+	if localVersion == "" {
 		skillFile := filepath.Join(cfg.Source, "skillshare", "SKILL.md")
 		if _, err := os.Stat(skillFile); os.IsNotExist(err) {
-			ui.Warning("Skill: not found")
-			ui.Info("  Run: skillshare upgrade --skill")
-			result.addCheck("skill_version", checkWarning, "Skill: not found", nil)
+			if isProject {
+				ui.Info("Skill: not installed")
+				result.addCheck("skill_version", checkInfo, "Skill: not installed in project", nil)
+			} else {
+				ui.Warning("Skill: not found")
+				ui.Info("  Run: skillshare upgrade --skill")
+				result.addCheck("skill_version", checkWarning, "Skill: not found", nil)
+			}
 		} else {
 			ui.Warning("Skill: missing version")
 			result.addCheck("skill_version", checkWarning, "Skill: missing version", nil)

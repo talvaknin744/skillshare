@@ -933,6 +933,27 @@ func renderAgentCheck(agentsDir string, groups []string, jsonMode bool) {
 		agentResults = filtered
 	}
 
+	trackedIndices := make([]int, 0, len(agentResults))
+	tracked := make([]check.AgentCheckResult, 0, len(agentResults))
+	for i := range agentResults {
+		if agentResults[i].Source != "" {
+			trackedIndices = append(trackedIndices, i)
+			tracked = append(tracked, agentResults[i])
+		}
+	}
+	if len(tracked) > 0 {
+		if jsonMode {
+			check.EnrichAgentResultsWithRemote(tracked, nil)
+		} else {
+			sp := ui.StartSpinner(fmt.Sprintf("Checking %d tracked agent(s)...", len(tracked)))
+			check.EnrichAgentResultsWithRemote(tracked, func() { sp.Success("Check complete") })
+			fmt.Println()
+		}
+		for i, idx := range trackedIndices {
+			agentResults[idx] = tracked[i]
+		}
+	}
+
 	if jsonMode {
 		out, _ := json.MarshalIndent(agentResults, "", "  ")
 		fmt.Println(string(out))
@@ -948,7 +969,11 @@ func renderAgentCheck(agentsDir string, groups []string, jsonMode bool) {
 			switch r.Status {
 			case "up_to_date":
 				ui.ListItem("success", r.Name, "up to date")
+			case "update_available":
+				ui.ListItem("warning", r.Name, "update available")
 			case "drifted":
+				ui.ListItem("warning", r.Name, r.Message)
+			case "dirty":
 				ui.ListItem("warning", r.Name, r.Message)
 			case "local":
 				ui.ListItem("info", r.Name, "local agent")

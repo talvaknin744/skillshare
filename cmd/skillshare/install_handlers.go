@@ -16,6 +16,17 @@ import (
 )
 
 func handleTrackedRepoInstall(source *install.Source, cfg *config.Config, opts install.InstallOptions) (installLogSummary, error) {
+	trackedKind, err := install.InferTrackedKind(source, opts.Kind)
+	if err != nil {
+		return installLogSummary{}, err
+	}
+	opts.Kind = trackedKind
+
+	trackSourceDir := cfg.Source
+	if trackedKind == "agent" {
+		trackSourceDir = cfg.EffectiveAgentsSource()
+	}
+
 	logSummary := installLogSummary{
 		Source:         source.Raw,
 		DryRun:         opts.DryRun,
@@ -50,7 +61,7 @@ func handleTrackedRepoInstall(source *install.Source, cfg *config.Config, opts i
 		}
 	}
 
-	result, err := install.InstallTrackedRepo(source, cfg.Source, opts)
+	result, err := install.InstallTrackedRepo(source, trackSourceDir, opts)
 	if err != nil {
 		if errors.Is(err, install.ErrSkipSameRepo) {
 			treeSpinner.Warn(firstWarningLine(err.Error()))
@@ -72,8 +83,13 @@ func handleTrackedRepoInstall(source *install.Source, cfg *config.Config, opts i
 		fmt.Println()
 		ui.Warning("[dry-run] Would install tracked repo")
 	} else {
-		ui.StepContinue("Found", fmt.Sprintf("%d skill(s)", result.SkillCount))
-		renderTrackedRepoMeta(result.RepoName, result.Skills, result.RepoPath)
+		if trackedKind == "agent" {
+			ui.StepContinue("Found", fmt.Sprintf("%d agent(s)", result.AgentCount))
+			renderTrackedAgentRepoMeta(result.RepoName, result.Agents, result.RepoPath)
+		} else {
+			ui.StepContinue("Found", fmt.Sprintf("%d skill(s)", result.SkillCount))
+			renderTrackedRepoMeta(result.RepoName, result.Skills, result.RepoPath)
+		}
 	}
 
 	// Display warnings and risk info
@@ -93,8 +109,13 @@ func handleTrackedRepoInstall(source *install.Source, cfg *config.Config, opts i
 	// Show next steps
 	if !opts.DryRun {
 		ui.SectionLabel("Next Steps")
-		ui.Info("Run 'skillshare sync' to distribute skills to all targets")
-		ui.Info("Run 'skillshare update %s' to update this repo later", result.RepoName)
+		if trackedKind == "agent" {
+			ui.Info("Run 'skillshare sync agents' to distribute agents to all targets")
+			ui.Info("Run 'skillshare update agents --all' to update tracked agent repos later")
+		} else {
+			ui.Info("Run 'skillshare sync' to distribute skills to all targets")
+			ui.Info("Run 'skillshare update %s' to update this repo later", result.RepoName)
+		}
 	}
 
 	return logSummary, nil
@@ -1014,6 +1035,14 @@ func renderTrackedRepoMeta(repoName string, skills []string, repoPath string) {
 	ui.StepContinue("Tracked", repoName)
 	if len(skills) > 0 && len(skills) <= 10 {
 		ui.StepContinue("Skills", strings.Join(skills, ", "))
+	}
+	ui.StepEnd("Location", repoPath)
+}
+
+func renderTrackedAgentRepoMeta(repoName string, agents []string, repoPath string) {
+	ui.StepContinue("Tracked", repoName)
+	if len(agents) > 0 && len(agents) <= 10 {
+		ui.StepContinue("Agents", strings.Join(agents, ", "))
 	}
 	ui.StepEnd("Location", repoPath)
 }

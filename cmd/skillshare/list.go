@@ -295,6 +295,12 @@ func discoverAndBuildAgentEntries(agentsSource string) []skillEntry {
 			if !entry.InstalledAt.IsZero() {
 				entries[i].InstalledAt = entry.InstalledAt.Format("2006-01-02")
 			}
+		} else if d.RepoRelPath != "" {
+			repoPath := filepath.Join(agentsSource, filepath.FromSlash(d.RepoRelPath))
+			if repoURL, err := git.GetRemoteURL(repoPath); err == nil {
+				entries[i].Source = repoURL
+				entries[i].Type = "git"
+			}
 		}
 	}
 	return entries

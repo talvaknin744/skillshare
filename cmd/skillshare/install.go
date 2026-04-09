@@ -190,6 +190,9 @@ func parseInstallArgs(args []string) (*installArgs, bool, error) {
 	if result.opts.HasSkillFilter() && result.opts.Track {
 		return nil, false, fmt.Errorf("--skill cannot be used with --track")
 	}
+	if result.opts.HasAgentFilter() && result.opts.Track {
+		return nil, false, fmt.Errorf("--agent cannot be used with --track")
+	}
 	if result.opts.ShouldInstallAll() && result.opts.Track {
 		return nil, false, fmt.Errorf("--all/--yes cannot be used with --track")
 	}

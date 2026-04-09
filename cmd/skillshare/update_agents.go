@@ -63,12 +63,7 @@ func cmdUpdateAgents(args []string, cfg *config.Config, start time.Time) error {
 	}
 
 	// Only check agents that have remote sources
-	var tracked []check.AgentCheckResult
-	for _, r := range results {
-		if r.Source != "" {
-			tracked = append(tracked, r)
-		}
-	}
+	tracked := collectTrackedAgentResults(results)
 
 	if len(tracked) == 0 {
 		ui.Info("No tracked agents to update (all are local)")
@@ -149,10 +144,15 @@ type agentRepoKey struct {
 // Agents with no RepoURL fall back to per-agent reinstallAgent.
 func batchUpdateAgents(agentsDir string, agents []check.AgentCheckResult, verbose bool) (updated, failed int) {
 	store := install.LoadMetadataOrNew(agentsDir)
+	trackedRepos := map[string][]check.AgentCheckResult{}
 	groups := map[agentRepoKey][]check.AgentCheckResult{}
 	var noRepo []check.AgentCheckResult
 
 	for _, r := range agents {
+		if r.RepoPath != "" {
+			trackedRepos[r.RepoPath] = append(trackedRepos[r.RepoPath], r)
+			continue
+		}
 		if r.RepoURL == "" {
 			noRepo = append(noRepo, r)
 			continue
@@ -177,6 +177,32 @@ func batchUpdateAgents(agentsDir string, agents []check.AgentCheckResult, verbos
 			repoSubdir: repoSubdir,
 		}
 		groups[key] = append(groups[key], r)
+	}
+
+	for repoPath, members := range trackedRepos {
+		uc := &updateContext{
+			sourcePath: agentsDir,
+			opts:       &updateOptions{},
+		}
+		ok, _, err := updateTrackedRepoQuick(uc, repoPath)
+		if err != nil {
+			for _, m := range members {
+				if verbose {
+					ui.Error("  %s: %v", m.Name, err)
+				}
+				failed++
+			}
+			continue
+		}
+		if !ok {
+			continue
+		}
+		for _, m := range members {
+			if verbose {
+				ui.Success("  %s: updated", m.Name)
+			}
+			updated++
+		}
 	}
 
 	// Batch: one clone per repo group
@@ -371,6 +397,16 @@ func parseUpdateAgentArgs(args []string) (*updateAgentArgs, bool, error) {
 	return opts, false, nil
 }
 
+func collectTrackedAgentResults(results []check.AgentCheckResult) []check.AgentCheckResult {
+	tracked := make([]check.AgentCheckResult, 0, len(results))
+	for _, r := range results {
+		if r.Source != "" {
+			tracked = append(tracked, r)
+		}
+	}
+	return tracked
+}
+
 func filterAgentCheckResults(results []check.AgentCheckResult, names []string) []check.AgentCheckResult {
 	nameSet := make(map[string]bool, len(names))
 	for _, n := range names {
@@ -530,12 +566,7 @@ func cmdUpdateAgentsProject(args []string, projectRoot string, start time.Time) 
 		}
 	}
 
-	var tracked []check.AgentCheckResult
-	for _, r := range results {
-		if r.Source != "" {
-			tracked = append(tracked, r)
-		}
-	}
+	tracked := collectTrackedAgentResults(results)
 
 	if len(tracked) == 0 {
 		ui.Info("No tracked project agents to update (all are local)")
@@ -566,17 +597,7 @@ func cmdUpdateAgentsProject(args []string, projectRoot string, start time.Time) 
 		return nil
 	}
 
-	store := install.LoadMetadataOrNew(agentsDir)
-	var updated, failed int
-	for _, r := range updatable {
-		if err := reinstallAgent(agentsDir, r, store); err != nil {
-			ui.Error("  %s: %v", r.Name, err)
-			failed++
-		} else {
-			ui.Success("  %s: updated", r.Name)
-			updated++
-		}
-	}
+	updated, failed := batchUpdateAgents(agentsDir, updatable, true)
 
 	logUpdateAgentOp(config.ProjectConfigPath(projectRoot), len(updatable), updated, failed, opts.dryRun, start)
 

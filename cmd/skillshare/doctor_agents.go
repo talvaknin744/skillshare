@@ -7,61 +7,92 @@ import (
 	"strings"
 
 	"skillshare/internal/config"
+	"skillshare/internal/resource"
+	"skillshare/internal/sync"
 	"skillshare/internal/ui"
 )
 
 // checkAgentTargetInline validates the agent target for a single target,
 // printing as an indented sub-item under the target name in doctor output.
-func checkAgentTargetInline(name string, target config.TargetConfig, builtinAgents map[string]config.TargetConfig, agentCount int, result *doctorResult) {
+// It applies the target's include/exclude filters to compute the expected count.
+func checkAgentTargetInline(name string, target config.TargetConfig, builtinAgents map[string]config.TargetConfig, allAgents []resource.DiscoveredResource, result *doctorResult) {
 	agentPath := resolveAgentTargetPath(target, builtinAgents, name)
 	if agentPath == "" {
 		return
 	}
 
+	ac := target.AgentsConfig()
+	mode := ac.Mode
+	if mode == "" {
+		mode = "merge"
+	}
+
+	// Apply per-target include/exclude filters to get expected agent count
+	filtered, filterErr := sync.FilterAgents(allAgents, ac.Include, ac.Exclude)
+	if filterErr != nil {
+		fmt.Printf("  agents   %s[%s] invalid filter: %s%s\n", ui.Red, mode, filterErr.Error(), ui.Reset)
+		result.addError()
+		result.addCheck("agent_target_"+name, checkError,
+			fmt.Sprintf("Agent target %s: invalid filter: %v", name, filterErr), nil)
+		return
+	}
+	agentCount := len(filtered)
+
+	// Build details for JSON output
+	var details []string
+	details = append(details, fmt.Sprintf("path: %s", agentPath))
+	details = append(details, fmt.Sprintf("mode: %s", mode))
+	if len(ac.Include) > 0 {
+		details = append(details, fmt.Sprintf("include: %s", strings.Join(ac.Include, ", ")))
+	}
+	if len(ac.Exclude) > 0 {
+		details = append(details, fmt.Sprintf("exclude: %s", strings.Join(ac.Exclude, ", ")))
+	}
+
 	info, err := os.Stat(agentPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			fmt.Printf("  agents   %s[merge] not created%s\n", ui.Gray, ui.Reset)
+			fmt.Printf("  agents   %s[%s] not created%s\n", ui.Gray, mode, ui.Reset)
 			result.addCheck("agent_target_"+name, checkPass,
-				fmt.Sprintf("Agent target %s: not created yet", name), nil)
+				fmt.Sprintf("Agent target %s: not created yet", name), details)
 			return
 		}
-		fmt.Printf("  agents   %s[merge] error: %s%s\n", ui.Red, err.Error(), ui.Reset)
+		fmt.Printf("  agents   %s[%s] error: %s%s\n", ui.Red, mode, err.Error(), ui.Reset)
 		result.addError()
 		result.addCheck("agent_target_"+name, checkError,
-			fmt.Sprintf("Agent target %s: %v", name, err), nil)
+			fmt.Sprintf("Agent target %s: %v", name, err), details)
 		return
 	}
 
 	if !info.IsDir() {
-		fmt.Printf("  agents   %s[merge] error: not a directory%s\n", ui.Red, ui.Reset)
+		fmt.Printf("  agents   %s[%s] error: not a directory%s\n", ui.Red, mode, ui.Reset)
 		result.addError()
 		result.addCheck("agent_target_"+name, checkError,
-			fmt.Sprintf("Agent target %s: path is not a directory", name), nil)
+			fmt.Sprintf("Agent target %s: path is not a directory", name), details)
 		return
 	}
 
 	linked, broken := countAgentLinksAndBroken(agentPath)
 	if broken > 0 {
-		msg := fmt.Sprintf("[merge] %d linked, %d broken", linked, broken)
+		msg := fmt.Sprintf("[%s] %d linked, %d broken", mode, linked, broken)
 		fmt.Printf("  agents   %s%s%s\n", ui.Yellow, msg, ui.Reset)
 		result.addWarning()
 		result.addCheck("agent_target_"+name, checkWarning,
-			fmt.Sprintf("Agent target %s: %s", name, msg), nil)
+			fmt.Sprintf("Agent target %s: %s", name, msg), details)
 		return
 	}
 
 	if linked != agentCount && agentCount > 0 {
-		fmt.Printf("  agents   [merge] %sdrift%s %s(%d/%d linked)%s\n", ui.Yellow, ui.Reset, ui.Dim, linked, agentCount, ui.Reset)
+		fmt.Printf("  agents   [%s] %sdrift%s %s(%d/%d linked)%s\n", mode, ui.Yellow, ui.Reset, ui.Dim, linked, agentCount, ui.Reset)
 		result.addWarning()
 		result.addCheck("agent_target_"+name, checkWarning,
-			fmt.Sprintf("Agent target %s: drift (%d/%d agents linked)", name, linked, agentCount), nil)
+			fmt.Sprintf("Agent target %s: drift (%d/%d agents linked)", name, linked, agentCount), details)
 		return
 	}
 
-	fmt.Printf("  agents   [merge] %smerged%s %s(%d/%d linked)%s\n", ui.Green, ui.Reset, ui.Dim, linked, agentCount, ui.Reset)
+	fmt.Printf("  agents   [%s] %ssynced%s %s(%d/%d linked)%s\n", mode, ui.Green, ui.Reset, ui.Dim, linked, agentCount, ui.Reset)
 	result.addCheck("agent_target_"+name, checkPass,
-		fmt.Sprintf("Agent target %s: %d agents synced", name, linked), nil)
+		fmt.Sprintf("Agent target %s: %d agents synced", name, linked), details)
 }
 
 // countAgentLinksAndBroken counts .md symlinks and broken symlinks in a directory.
