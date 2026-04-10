@@ -192,8 +192,21 @@ func sortSkillEntries(skills []skillEntry, sortBy string) {
 			}
 			return a < b // ascending
 		})
-	default: // "name" or empty — sort by RelPath so groups stay together
+	default: // "name" or empty — group by top-level bucket, then by RelPath
 		sort.SliceStable(skills, func(i, j int) bool {
+			ti := skillTopGroup(skills[i])
+			tj := skillTopGroup(skills[j])
+			if ti != tj {
+				// Empty topGroup (standalone) sorts last so flat locals
+				// don't split named groups apart in the list TUI.
+				if ti == "" {
+					return false
+				}
+				if tj == "" {
+					return true
+				}
+				return ti < tj
+			}
 			return skills[i].RelPath < skills[j].RelPath
 		})
 	}
@@ -282,11 +295,12 @@ func discoverAndBuildAgentEntries(agentsSource string) []skillEntry {
 			IsNested: d.IsNested,
 			Disabled: d.Disabled,
 		}
-		// Group agents by parent directory (like tracked repos for skills).
-		if d.IsNested {
-			if dir := filepath.Dir(d.RelPath); dir != "." {
-				entries[i].RepoName = dir
-			}
+		// For tracked agents, set RepoName to the tracked repo root
+		// (e.g. "_vijaythecoder-awesome-claude-agents") so all agents under
+		// the same repo share one visual group — regardless of how deeply
+		// they're nested (agents/core, agents/specialized/python, etc.).
+		if d.IsInRepo && d.RepoRelPath != "" {
+			entries[i].RepoName = d.RepoRelPath
 		}
 		key := strings.TrimSuffix(d.RelPath, ".md")
 		if entry := store.GetByPath(key); entry != nil {
@@ -591,9 +605,10 @@ func cmdList(args []string) error {
 			allEntries = append(allEntries, discoverAndBuildAgentEntries(cfg.EffectiveAgentsSource())...)
 			total := len(allEntries)
 			allEntries = filterSkillEntries(allEntries, opts.Pattern, opts.TypeFilter)
-			if opts.SortBy != "" {
-				sortSkillEntries(allEntries, opts.SortBy)
-			}
+			// Always sort: buildGroupedItems relies on contiguous top-group
+			// blocks, which the default sort guarantees (tracked → named
+			// locals → standalone).
+			sortSkillEntries(allEntries, opts.SortBy)
 			return listLoadResult{skills: toSkillItems(allEntries), totalCount: total}
 		}
 		action, skillName, skillKind, err := runListTUI(loadFn, "global", cfg.Source, cfg.EffectiveAgentsSource(), cfg.Targets, kind)
@@ -673,9 +688,9 @@ func cmdList(args []string) error {
 
 	// Apply filter and sort
 	allEntries = filterSkillEntries(allEntries, opts.Pattern, opts.TypeFilter)
-	if opts.SortBy != "" {
-		sortSkillEntries(allEntries, opts.SortBy)
-	}
+	// Always sort so the TUI and plain-text renderers see contiguous
+	// top-level groups (tracked → named locals → standalone).
+	sortSkillEntries(allEntries, opts.SortBy)
 
 	// JSON output
 	if opts.JSON {

@@ -332,17 +332,18 @@ func toSkillItems(entries []skillEntry) []skillItem {
 	return items
 }
 
-// buildGroupedItems inserts groupItem separators before each repo/local group.
+// buildGroupedItems inserts groupItem separators before each top-level group.
 // Skills must be sorted by RelPath (tracked repos with "_" prefix sort first).
-// If all skills belong to a single group (e.g. all standalone), no separators are added.
-// When items contain mixed kinds (skills + agents), groups are keyed by kind+repo
-// so skills and agents stay in separate blocks.
+// Grouping follows skillTopGroup(): tracked entries group by their repo root;
+// local nested entries group by their first path segment; flat locals fall
+// into "standalone". When items contain mixed kinds (skills + agents), the
+// kind is included in the key so they stay in separate blocks.
 func buildGroupedItems(skills []skillItem) []list.Item {
 	// Check if there are multiple groups.
 	groups := map[string]bool{}
 	hasMultiKinds := false
 	for _, s := range skills {
-		groups[s.entry.Kind+"\x00"+s.entry.RepoName] = true
+		groups[s.entry.Kind+"\x00"+skillTopGroup(s.entry)] = true
 		if !hasMultiKinds && len(skills) > 0 && s.entry.Kind != skills[0].entry.Kind {
 			hasMultiKinds = true
 		}
@@ -374,12 +375,13 @@ func buildGroupedItems(skills []skillItem) []list.Item {
 	}
 
 	for _, s := range skills {
-		key := s.entry.Kind + "\x00" + s.entry.RepoName
+		top := skillTopGroup(s.entry)
+		key := s.entry.Kind + "\x00" + top
 		if key != currentGroup {
 			flush()
 			label := "standalone"
-			if s.entry.RepoName != "" {
-				label = strings.TrimPrefix(s.entry.RepoName, "_")
+			if top != "" {
+				label = strings.TrimPrefix(top, "_")
 			}
 			// Prefix with kind when mixed to visually separate skills/agents
 			if hasMultiKinds {

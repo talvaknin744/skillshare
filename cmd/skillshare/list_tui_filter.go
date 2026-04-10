@@ -163,3 +163,18 @@ func skillGroup(e skillEntry) string {
 	// Non-tracked: first segment is group
 	return parts[0]
 }
+
+// skillTopGroup returns the top-level visual grouping key for the list TUI.
+// Tracked entries (including nested agents in deep repo subdirs) group by
+// their tracked repo root. Non-tracked nested entries group by their first
+// path segment (e.g. local "mma/foo" → "mma"). Flat root-level entries
+// return "" which renders as the "standalone" bucket.
+func skillTopGroup(e skillEntry) string {
+	if e.RepoName != "" {
+		return e.RepoName
+	}
+	if i := strings.Index(e.RelPath, "/"); i > 0 {
+		return e.RelPath[:i]
+	}
+	return ""
+}
