@@ -370,6 +370,50 @@ skillshare backup --cleanup
 
 ---
 
+## Agents
+
+### What's the difference between agents and skills?
+
+Skills are **directories** containing a `SKILL.md` file (and optionally helpers, examples, templates). Agents are **single `.md` files** with frontmatter — no nested structure. Both support install, sync, audit, check, backup, and trash.
+
+See [Agents](/docs/understand/agents) for the full comparison and the agent file format.
+
+### Which targets support agents?
+
+Out of the box: `claude`, `cursor`, `augment`, `opencode` (plus the `universal` alias). Other targets are silently skipped during agent sync with a `target(s) skipped for agents (no agents path)` warning. You can add an agent path manually by editing `config.yaml`:
+
+```yaml
+targets:
+  myapp:
+    path: ~/myapp/skills
+    agents:
+      path: ~/myapp/agents
+```
+
+### How do I disable a single agent without deleting it?
+
+Use the `disable` command (or edit `.agentignore` directly):
+
+```bash
+skillshare disable my-agent --kind agent     # Adds entry to .agentignore
+skillshare enable my-agent --kind agent      # Removes the entry
+```
+
+`.agentignore` lives in the agents source root (`~/.config/skillshare/agents/.agentignore` globally, `.skillshare/agents/.agentignore` in project mode) and uses [gitignore syntax](https://git-scm.com/docs/gitignore). A `.agentignore.local` overlay is also supported for local-only overrides.
+
+### Can I backup agents in project mode?
+
+Yes — and **only** agents. `backup` is not allowed in project mode for skills, but the agents flow is the explicit exception:
+
+```bash
+skillshare backup -p agents     # Backs up project agent targets
+skillshare backup -p --all      # Same as above; --all narrows to agents in project mode
+```
+
+If you forget the `agents` filter, you'll see `backup is not supported in project mode (except for agents)`. Same rule applies to `restore`. Agent backups are stored under `<target>-agents/` next to the regular skill backups.
+
+---
+
 ## Security
 
 ### Can I trust third-party skills?

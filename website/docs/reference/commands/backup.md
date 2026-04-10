@@ -7,8 +7,10 @@ sidebar_position: 2
 Create, list, and manage backups of target directories.
 
 ```bash
-skillshare backup              # Backup all targets
+skillshare backup              # Backup all skill targets
 skillshare backup claude       # Backup specific target
+skillshare backup agents       # Backup all agent targets
+skillshare backup --all        # Backup skills + agents
 skillshare backup --list       # List all backups
 skillshare backup --cleanup    # Remove old backups
 ```
@@ -22,7 +24,8 @@ skillshare backup --cleanup    # Remove old backups
 ## Automatic Backups
 
 Backups are created **automatically** before:
-- `skillshare sync`
+- `skillshare sync` (skill targets and agent targets)
+- `skillshare sync agents` (agent targets only)
 - `skillshare target remove`
 
 Location: `~/.local/share/skillshare/backups/<timestamp>/`
@@ -66,10 +69,15 @@ Default cleanup policy:
 
 | Flag | Description |
 |------|-------------|
+| `--all` | Backup both skills and agents |
+| `--project, -p` | Use project mode (`.skillshare/backups/`); **agents only** |
+| `--global, -g` | Use global mode (default for skills) |
 | `--list, -l` | List all backups |
 | `--cleanup, -c` | Remove old backups |
-| `--target, -t <name>` | Target specific backup |
+| `--target, -t <name>` | Target specific backup (alternative to positional arg) |
 | `--dry-run, -n` | Preview without making changes |
+
+`backup` also accepts a positional kind argument: `skillshare backup agents` scopes the backup to agent targets only.
 
 ## Backup Structure
 
@@ -96,6 +104,36 @@ This means:
 - In merge mode: All skills are backed up (symlinks resolved, local copies included)
 - In copy mode: All managed skill directories are backed up
 - In symlink mode: Nothing is backed up (entire directory is a single symlink)
+
+## Agent Backup
+
+Agents have their own backup flow that runs alongside skill backups, with two distinctions worth knowing:
+
+**Entry naming.** Agent backups are stored under `<target>-agents/` inside each timestamp directory, parallel to the skill backup. For example, after `skillshare backup --all` the layout looks like:
+
+```
+~/.local/share/skillshare/backups/2026-01-20_15-30-00/
+├── claude/          # Skills backup for claude
+├── claude-agents/   # Agents backup for claude
+└── cursor/
+```
+
+**Project mode is the inverse of skills.** In project mode (`-p`), `backup` refuses to back up skill targets but **does** back up agent targets. The error you'll see if you forget the `agents` filter:
+
+```
+backup is not supported in project mode (except for agents)
+```
+
+So in project mode you must say either `skillshare backup -p agents` or `skillshare backup -p --all`.
+
+```bash
+skillshare backup agents                  # All agent targets (global)
+skillshare backup agents claude           # Only claude's agents
+skillshare backup agents -p               # Project agent targets
+skillshare backup --all                   # Skills + agents in one shot
+```
+
+See [Agents](/docs/understand/agents) for the agent resource model and [restore](/docs/reference/commands/restore) for recovery.
 
 ## See Also
 

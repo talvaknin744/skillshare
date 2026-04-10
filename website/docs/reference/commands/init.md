@@ -24,7 +24,7 @@ skillshare init --dry-run    # Preview without changes
 flowchart TD
     TITLE["skillshare init"]
     S0["0. Source path prompt"]
-    S1["1. Create source directory"]
+    S1["1. Create source + agents directories"]
     S2["2. Auto-detect AI CLIs"]
     S3["3. Initialize git"]
     S4["4. Set up remote"]
@@ -34,8 +34,14 @@ flowchart TD
     TITLE --> S0 --> S1 --> S2 --> S3 --> S4 --> S4b --> S5 --> S6
 ```
 
+`init` creates the skills source directory **and** an `agents/` sibling directory in one step, so both resource kinds are ready to use immediately. The agents directory is silent — no extra prompts or flags. See [Agents](/docs/understand/agents) for the agent file format.
+
 :::info Universal target
 When any AI CLI is detected, `init` automatically recommends the **universal** target (`~/.agents/skills`). This is the shared directory used by [vercel-labs/skills](https://github.com/vercel-labs/skills) (`npx skills list`) to provide skills to all compatible agents at once.
+:::
+
+:::tip Agents source path
+The agents source defaults to `<source parent>/agents` (so `~/.config/skillshare/agents/` for the default install). Set `agents_source:` in `config.yaml` to override the location. Project mode always uses `.skillshare/agents/` and does not honor `agents_source`. Agent-capable targets (Claude, Cursor, Augment, OpenCode) pick agents up automatically once you run `skillshare sync`.
 :::
 
 ## Project Mode
@@ -52,14 +58,14 @@ skillshare init -p --targets claude,cursor  # Non-interactive
 ```mermaid
 flowchart TD
     TITLE["skillshare init -p"]
-    S1["1. Create .skillshare/ directory"]
+    S1["1. Create .skillshare/skills + .skillshare/agents"]
     S2["2. Detect AI CLI directories"]
     S3["3. Create target skill directories"]
     S4["4. Write config.yaml"]
     TITLE --> S1 --> S2 --> S3 --> S4
 ```
 
-After init, commit `.skillshare/` to git. See [Project Setup](/docs/how-to/sharing/project-setup) for the full guide.
+After init, commit `.skillshare/` to git (both `skills/` and `agents/`). See [Project Setup](/docs/how-to/sharing/project-setup) for the full guide.
 
 ## Discover Mode
 

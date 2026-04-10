@@ -399,6 +399,58 @@ See [Target Filters](/docs/reference/targets/configuration#include--exclude-targ
 
 ---
 
+## Agent Errors
+
+### Warning: `target(s) skipped for agents (no agents path)`
+
+**Cause:** You ran `skillshare sync` (or `skillshare sync agents`) and one or more configured targets don't define an agents directory. Only Claude, Cursor, Augment, and OpenCode have built-in agent paths; other targets are silently skipped.
+
+**Solutions:**
+
+1. Ignore the warning if those targets don't need agents.
+2. Add an `agents:` sub-key to the target in `config.yaml` to enable agent sync for it:
+
+```yaml
+targets:
+  myapp:
+    path: ~/myapp/skills
+    agents:
+      path: ~/myapp/agents
+```
+
+Then re-run `skillshare sync agents`.
+
+### `backup is not supported in project mode (except for agents)`
+
+**Cause:** You ran `skillshare backup -p` (or `skillshare backup -p <target>`) without the `agents` filter. In project mode, only agent backups are supported — skill backups are global-only.
+
+**Solution:** Add the `agents` positional argument or use `--all`:
+
+```bash
+skillshare backup -p agents          # Project agent targets
+skillshare backup -p agents claude   # Specific target
+skillshare backup -p --all           # Same as above (narrows to agents)
+```
+
+The same rule applies to `restore`: `restore is not supported in project mode (except for agents)`.
+
+### `agent name 'X' has invalid characters`
+
+**Cause:** An agent filename or `name:` frontmatter field contains characters outside the allowed set.
+
+**Solution:** Agent names must use only `a-z`, `0-9`, `_`, `-`, `.`. Rename the file (and update its `name:` field to match) so they share the same canonical name.
+
+### `.agentignore` patterns not taking effect
+
+**Causes:**
+
+1. The file is in the wrong location. It must live at the agents source root: `~/.config/skillshare/agents/.agentignore` (global) or `.skillshare/agents/.agentignore` (project).
+2. Your pattern matches a different segment than you expect — the file uses [gitignore syntax](https://git-scm.com/docs/gitignore).
+
+**Solution:** Confirm the file path with `skillshare doctor` and re-check the pattern. Agents are matched by basename (without `.md`), so `draft-*` matches `draft-experiment.md`. Use `skillshare disable <agent> --kind agent` to let the CLI write the entry for you.
+
+---
+
 ## Binary Errors
 
 ### `integration tests cannot find the binary`

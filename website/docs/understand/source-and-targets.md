@@ -7,7 +7,7 @@ sidebar_position: 2
 The core model behind skillshare: one source, many targets.
 
 :::tip When does this matter?
-Understanding source vs targets helps you know where to edit skills (always in source — changes reflect via symlinks), why `sync` is a separate step, and how `collect` works in the reverse direction.
+Understanding source vs targets helps you know where to edit skills and agents (always in source — changes reflect via symlinks), why `sync` is a separate step, and how `collect` works in the reverse direction.
 :::
 
 ## The Problem
@@ -121,6 +121,35 @@ flowchart LR
 
 ---
 
+## Agents Source
+
+Agents are a parallel resource kind to skills. They live in their own source directory next to `skills/` and follow the same source-and-targets model:
+
+```
+~/.config/skillshare/
+├── skills/                    # Skills source (directories)
+│   └── my-skill/
+│       └── SKILL.md
+└── agents/                    # Agents source (single .md files)
+    ├── reviewer.md
+    └── auditor.md
+```
+
+The same `skillshare init` run creates both directories. Agents are single `.md` files (no nested directories) and are synced via `skillshare sync` (or `skillshare sync agents` to scope to agents only).
+
+**Targets that support agents.** Not every AI CLI exposes an agents directory. The targets that do are:
+
+- `~/.claude/agents/` — Claude Code
+- `~/.cursor/agents/` — Cursor
+- `~/.augment/agents/` — Augment
+- `~/.config/opencode/agents/` — OpenCode
+
+Other targets are silently skipped during agent sync (with a `target(s) skipped for agents (no agents path)` warning). The same merge / copy / symlink modes that apply to skills also apply to agents.
+
+See [Agents](/docs/understand/agents) for the full agent file format, `.agentignore` rules, and discovery semantics.
+
+---
+
 ## Targets
 
 Targets are AI CLI skill directories that skillshare syncs to.
@@ -190,4 +219,5 @@ $EDITOR ~/.claude/skills/my-skill/SKILL.md
 - [sync](/docs/reference/commands/sync) — Propagate changes from source to targets
 - [collect](/docs/reference/commands/collect) — Pull skills from targets back to source
 - [Sync Modes](./sync-modes.md) — How files are linked (merge, copy, symlink)
+- [Agents](./agents.md) — Agent resource model and discovery
 - [Configuration](/docs/reference/targets/configuration) — Target config reference

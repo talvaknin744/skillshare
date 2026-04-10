@@ -294,6 +294,10 @@ $ skillshare sync
 ✓ cursor: copied (3 new, 2 skipped, 0 updated, 1 pruned)
 ```
 
+:::info Agents follow the same modes
+All three modes (merge, copy, symlink) apply to agent sync as well. Agent orphan cleanup, per-target include/exclude filtering, and mode conversion behave identically to skills — the only difference is that agents are single `.md` files instead of directories. Agent-capable targets (Claude, Cursor, Augment, OpenCode) honor the same `mode` setting on their `agents:` sub-key. See [Agents](./agents.md) for details.
+:::
+
 ---
 
 ## Extras Sync Modes

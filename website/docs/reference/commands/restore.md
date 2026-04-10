@@ -59,10 +59,15 @@ flowchart TD
 
 | Flag | Description |
 |------|-------------|
+| `--all` | Restore both skills and agents |
+| `--project, -p` | Use project mode (`.skillshare/backups/`); **agents only** |
+| `--global, -g` | Use global mode (default for skills) |
 | `--from, -f <timestamp>` | Restore from specific backup |
 | `--force` | Overwrite without confirmation |
 | `--dry-run, -n` | Preview without making changes |
 | `--no-tui` | Skip interactive TUI, show backup list instead |
+
+`restore` also accepts a positional kind argument: `skillshare restore agents claude` restores the agent backup for the `claude` target.
 
 ## Finding Backups
 
@@ -138,7 +143,27 @@ skillshare restore claude --from 2026-01-15_10-00-00
 skillshare sync  # Return to current state
 ```
 
+### Agent Restore
+
+Agent restore mirrors skill restore but operates on the parallel `<target>-agents` backup entries created by `backup agents` (and the auto-backup that runs before `sync agents`):
+
+```bash
+skillshare restore agents claude                       # Latest agent backup for claude
+skillshare restore agents claude --from 2026-01-19_10-00-00
+skillshare restore agents -p                           # Project agents (the only project mode allowed)
+skillshare restore --all claude                        # Skills + agents in one shot
+```
+
+In project mode, restore — like backup — only operates on agents. Without the `agents` argument it errors:
+
+```
+restore is not supported in project mode (except for agents)
+```
+
+When listing backups via `skillshare backup --list`, agent backups show as separate entries with the `-agents` suffix (e.g. `claude-agents`).
+
 ## See Also
 
 - [backup](/docs/reference/commands/backup) — Create and manage backups
 - [sync](/docs/reference/commands/sync) — Re-sync after restore
+- [Agents](/docs/understand/agents) — Agent resource model

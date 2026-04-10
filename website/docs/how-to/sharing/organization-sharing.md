@@ -298,6 +298,28 @@ See [Environment Variables](/docs/reference/appendix/environment-variables#git-a
 
 ---
 
+## Organization Agents
+
+A tracked organization repo can ship **agents** alongside skills. Place them in a top-level `agents/` directory next to `skills/`:
+
+```
+your-org/org-shared/
+├── skills/                  # Discovered as skills
+│   ├── api-design/
+│   │   └── SKILL.md
+│   └── security/
+│       └── SKILL.md
+└── agents/                  # Discovered as agents
+    ├── reviewer.md
+    └── auditor.md
+```
+
+When teammates run `skillshare install github.com/your-org/org-shared --track`, both directories are picked up automatically. `skillshare update --all` keeps both in sync, and `skillshare sync` (or `skillshare sync agents`) propagates the agents to agent-capable targets (Claude, Cursor, Augment, OpenCode).
+
+`.agentignore` files inside the org repo are honored on disk but should generally live in the consumer's source root (or `.agentignore.local`) so individual machines can opt out without editing the upstream repo. See [Agents](/docs/understand/agents) for the full discovery rules.
+
+---
+
 ## Organization vs Project Skills
 
 | | Organization Skills | Project Skills |

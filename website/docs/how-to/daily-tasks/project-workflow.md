@@ -58,6 +58,24 @@ git add .skillshare/
 git commit -m "Add my-skill"
 ```
 
+### Add a New Agent
+
+Agents are single `.md` files; create them directly under `.skillshare/agents/`:
+
+```bash
+# Create an agent file
+$EDITOR .skillshare/agents/my-agent.md
+
+# Sync to agent-capable targets (claude, cursor, augment, opencode)
+skillshare sync agents
+
+# Commit
+git add .skillshare/agents/
+git commit -m "Add my-agent"
+```
+
+`skillshare sync` (without `agents`) syncs both skills and agents in one shot. Use `skillshare disable my-agent --kind agent -p` to add an entry to `.skillshare/agents/.agentignore` without deleting the file.
+
 ### Install a Remote Skill
 
 ```bash

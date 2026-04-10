@@ -62,6 +62,16 @@ Sync is intentionally decoupled from install/update/uninstall. This lets you bat
 skillshare sync --dry-run
 ```
 
+### Sync agents only
+
+If you only changed agents (or only want to push agents to agent-capable targets), scope the sync:
+
+```bash
+skillshare sync agents
+```
+
+`skillshare sync` runs both skills and agents in one shot. See [Agents](/docs/understand/agents) for the agent file format and supported targets.
+
 ---
 
 ## Cross-Machine Sync
@@ -99,6 +109,22 @@ This runs:
 skillshare new code-review
 $EDITOR ~/.config/skillshare/skills/code-review/SKILL.md
 skillshare sync
+```
+
+### Edit or add an agent
+
+Agents are single `.md` files in `~/.config/skillshare/agents/`. Create or edit them directly with your editor:
+
+```bash
+$EDITOR ~/.config/skillshare/agents/reviewer.md
+skillshare sync agents
+```
+
+`disable` / `enable` toggle individual agents via `.agentignore` without deleting them:
+
+```bash
+skillshare disable reviewer --kind agent     # Excludes from sync
+skillshare enable reviewer --kind agent      # Re-enables
 ```
 
 ### Update a tracked repo

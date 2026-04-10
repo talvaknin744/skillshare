@@ -22,10 +22,11 @@ flowchart LR
 
 Backups are created automatically before:
 
-- `skillshare sync`
+- `skillshare sync` (skill targets and agent targets)
+- `skillshare sync agents` (agent targets only)
 - `skillshare target remove`
 
-**Location:** `~/.local/share/skillshare/backups/<timestamp>/`
+**Location:** `~/.local/share/skillshare/backups/<timestamp>/` (agent backups appear as `<target>-agents/` next to the regular `<target>/` directories).
 
 ---
 
@@ -145,6 +146,23 @@ skillshare sync
 skillshare backup --list
 skillshare restore claude --from <earlier-timestamp>
 ```
+
+### Recover an agent
+
+Agents have their own backup entries (`<target>-agents`) and follow the same flow as skills:
+
+```bash
+# Manual agent backup
+skillshare backup agents claude
+
+# Restore from latest
+skillshare restore agents claude
+
+# Restore from a specific timestamp
+skillshare restore agents claude --from 2026-01-19_10-00-00
+```
+
+In project mode, only agents can be backed up or restored — `skillshare backup -p agents` works, but plain `skillshare backup -p` errors. See [backup](/docs/reference/commands/backup#agent-backup) for the project-mode rule.
 
 ---
 

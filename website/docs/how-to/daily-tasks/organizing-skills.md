@@ -77,6 +77,10 @@ skillshare converts folder paths to flat names using `__` (double underscore) as
 - `list` and `sync` discover nested skills at any depth
 - `check` and `update` also work with nested skills
 
+:::note Agents are not nested
+This page is about organizing **skills**. Agents are always single `.md` files placed directly under `~/.config/skillshare/agents/` (or `.skillshare/agents/` in project mode) — they don't support folder nesting or auto-flattening. To organize agents, use naming conventions (e.g. `frontend-reviewer.md`, `backend-auditor.md`) and `.agentignore` patterns.
+:::
+
 ---
 
 ## Working with Nested Skills
