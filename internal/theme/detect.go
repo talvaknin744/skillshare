@@ -18,11 +18,11 @@ const probeTimeout = 300 * time.Millisecond
 //
 // Precedence (highest first):
 //
-//	1. NO_COLOR set (any value) → NoColor=true, palette arbitrary.
-//	2. SKILLSHARE_THEME=light → light palette, Source="env".
-//	3. SKILLSHARE_THEME=dark → dark palette, Source="env".
-//	4. SKILLSHARE_THEME=auto / unset / unknown → probe terminal.
-//	5. Probe skipped or failed → dark palette fallback.
+//  1. NO_COLOR set (any value) → NoColor=true, palette arbitrary.
+//  2. SKILLSHARE_THEME=light → light palette, Source="env".
+//  3. SKILLSHARE_THEME=dark → dark palette, Source="env".
+//  4. SKILLSHARE_THEME=auto / unset / unknown → probe terminal.
+//  5. Probe skipped or failed → dark palette fallback.
 func resolve() *Theme {
 	// 1. NO_COLOR — https://no-color.org/ (only when non-empty per spec)
 	if v, ok := os.LookupEnv("NO_COLOR"); ok && v != "" {

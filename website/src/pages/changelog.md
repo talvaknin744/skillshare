@@ -9,6 +9,132 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.19.0] - 2026-04-11
+
+### New Features
+
+#### Agent Management
+
+Agents are now a first-class resource type alongside skills. You can install, sync, audit, and manage agent files (`.md`) across agent-capable targets (Claude, Cursor, OpenCode, Augment) with the same workflow as skills.
+
+- **Agents source directory** — agents live in `~/.config/skillshare/agents/` (or `.skillshare/agents/` in project mode). `skillshare init` creates the directory automatically, and `agents_source` is a new config field that can be customized
+  ```bash
+  skillshare init              # creates skills/ and agents/
+  skillshare init -p           # same for project mode
+  ```
+
+- **Positional kind filter** — most commands accept an `agents` keyword to scope the operation to agents only. Without it, commands operate on skills (existing behavior is unchanged)
+  ```bash
+  skillshare sync agents       # sync agents only
+  skillshare sync --all        # sync skills + agents + extras
+  skillshare list agents       # list installed agents
+  skillshare check agents      # detect drift on agent repos
+  skillshare update agents     # update agents
+  skillshare audit agents      # scan agents for security issues
+  skillshare uninstall agents  # uninstall by kind
+  skillshare enable foo --kind agent
+  skillshare disable foo --kind agent
+  ```
+
+- **Install agents from repos** — `install` auto-detects agents in three layouts:
+  - `agents/` convention subdirectory
+  - mixed-kind repos with both `SKILL.md` and `agents/`
+  - pure-agent repos (root `.md` files, no `SKILL.md`)
+  ```bash
+  skillshare install github.com/team/agents            # auto-detect
+  skillshare install github.com/team/repo --kind agent # force agent mode
+  skillshare install github.com/team/repo --agent cr   # specific agents
+  ```
+  Conventional files (`README.md`, `LICENSE.md`, `CHANGELOG.md`) are automatically excluded
+
+- **Tracked agent repos** — agents can be installed with `--track` for git-pull updates, including nested discovery. `check`, `update`, `doctor`, and `uninstall` all recognise tracked agent repos, and the `--group` / `-G` flag filters by repo group
+
+- **Agent sync modes** — merge (default, per-file symlink), symlink (whole directory), and copy are all supported. `skillshare sync agents` skips targets that don't declare an `agents:` path and prints a warning
+
+- **`.agentignore` support** — agents can be excluded via `.agentignore` and `.agentignore.local` using the same gitignore-style patterns as `.skillignore`. The Web UI Config page now has a dedicated `.agentignore` tab
+
+- **Agent audit** — `skillshare audit` scans agent files individually against the full audit rule set, with Skills/Agents tab switching in both the TUI and Web UI. Audit results carry a `kind` field so tooling can filter by resource type
+
+- **Agent backup and restore** — sync automatically backs up agents before applying changes, in both global and project mode. The backup TUI and trash TUI tag agents with an `[A]` badge and route restores to the correct source directory
+
+- **Project-mode agent support** — every agent command works in project mode with `-p`. Agents are reconciled alongside skills into `.skillshare/`
+
+- **JSON output for agents** — `install --json` and `update --json` now emit agent-aware payloads and apply the same audit block-threshold gate as skills. Useful for scripted agent workflows
+  ```bash
+  skillshare update agents --json --audit-threshold high
+  ```
+
+- **Kind badges** — TUI and Web UI surface `[S]` / `[A]` badges throughout (list, diff, audit, trash, backup, detail, update, targets pages) so you can tell at a glance what kind of resource you're looking at
+
+#### Unified Web UI Resources
+
+- **`/resources` route** — the old `/skills` page is now `/resources`, with Skills and Agents tabs. Tab state persists to localStorage, and the underline tab style follows the active theme (playful mode gets wobble borders)
+
+- **Targets page redesign** — equal Skills and Agents sections, with a modal picker for adding targets. Filter Studio links include a `?kind=` param so you jump directly to the right context
+
+- **Update page redesign** — a new three-phase flow (selecting → updating → done) with skills/agents tabs, group-based sorting, and status cards. EventSource streaming is properly cleaned up on page change
+
+- **Filter Studio agent support** — agent filters can be edited via `PATCH /api/targets/:name` (`agent_include`, `agent_exclude`, `agent_mode`) and via the CLI (`targets edit --add-agent-include`, `--remove-agent-include`, `--agent-mode`, and so on). The UI Filter Studio is a single-context view driven by `?kind=skill|agent`
+
+- **Audit cache** — audit results are now cached with React Query and invalidated on mutation. The audit card icon colour follows the max severity, and the count no longer mixes agent totals with finding counts
+
+- **Collect page scope switcher** — a new segmented control lets you collect skills or agents from targets
+
+#### Theme System
+
+- **`internal/theme` package** — unified light/dark terminal palette with WCAG-AA-compliant light colours and softened dark primary. Resolution order: `NO_COLOR` > `SKILLSHARE_THEME` > OSC 11 terminal probe > dark fallback. All TUIs, list output, audit output, and plain CLI output now route through the theme
+  ```bash
+  SKILLSHARE_THEME=light skillshare list
+  SKILLSHARE_THEME=dark skillshare audit
+  ```
+  `skillshare doctor` includes a theme check to help debug unreadable colours
+
+#### Install & TUI Polish
+
+- **Explicit `SKILL.md` URLs resolve to one skill** — pasting a direct `blob/.../SKILL.md` URL now installs only that skill, bypassing the orchestrator pack prompt. Previously, the URL would trigger the full multi-select picker even though the intent was clear
+  ```bash
+  skillshare install https://github.com/team/repo/blob/main/frontend/tdd/SKILL.md
+  ```
+  Refs: #124
+
+- **Radio checklist follows the cursor** — the single-select TUI (used for orchestrator selection, branch selection, and similar flows) now auto-selects the focused row. No more confusing empty-selection state — pressing Enter always confirms the item your cursor is on
+
+- **Diff TUI** — single-line items with group headers instead of the old verbose-per-item layout. Agent diffs are shown with an `[A]` badge
+
+- **List TUI** — entries are now grouped by tracked repo root and local top directory, with a new `k:kind` filter tag for quick agent/skill filtering inside the fuzzy filter
+
+#### Centralized Metadata Store
+
+- **`.metadata.json` replaces sidecar files and `registry.yaml`** — installation metadata is now stored in a single atomic file per source (`~/.config/skillshare/skills/.metadata.json`). This fixes long-standing issues with grouped skill collisions (e.g. two skills both named `dev` in different folders) where the old basename-keyed registry would mix them up
+  - **Automatic migration** — the first load after upgrade reads any existing `registry.yaml` and per-skill `.skillshare-meta.json` sidecars, merges them into `.metadata.json`, and cleans up the old files. Idempotent — safe to run repeatedly
+  - **Full-path keys** — lookups use the full source-relative path, so nested skills never collide
+  - No user action required; existing installs continue to work
+
+### Bug Fixes
+
+- **Sync extras no longer flood when `agents` target overlaps** — targets that declare an extras entry called `agents` are now skipped automatically when agent sync is active, preventing duplicate file writes
+- **Nested agent discovery** — `check agents` now uses the recursive discovery engine, so agents in sub-folders (e.g. `demo/code-reviewer.md`) are detected correctly
+- **Doctor drift count excludes disabled agents** — agents disabled via `.agentignore` no longer count toward the drift total reported by `skillshare doctor`
+- **Audit card mixes counts** — the Web UI audit card no longer mixes agent counts with finding counts, and excludes `_cross-skill` from the card total (shown separately)
+- **Audit scans disabled agents too** — the audit scan walks every agent file regardless of `.agentignore` state, so hidden agents still get checked
+- **List TUI tab bar clipping** — the tab bar no longer gets cut off in the split-detail layout on narrow terminals
+- **Sync extras indent** — removed the stray space between the checkmark and the path in `sync` extras output; summary headers are now consistent across skills, agents, and extras
+- **UI skill detail agent mode** — the detail page hides the Files section for agents (single-file resources), remembers the selected tab via localStorage, and shows the correct folder-view labels
+- **Sync page layout** — the stats row and ignored-skills grouping are now easier to scan
+- **Button warning variant** — the shared `Button` component now supports a `warning` variant that was already referenced by several pages
+- **Check progress bar pop-in** — removed the loading progress bar that caused layout shift on the Skills page
+- **Tracked repo check status** — the propagated check status is now applied to every item within the repo, not just the root
+- **Target name colouring in doctor** — only the status word is coloured in `doctor` target output, not the full line
+
+### Breaking Changes
+
+- **`audit --all` flag removed** — use the positional kind filter instead:
+  ```bash
+  skillshare audit                # skills (default, unchanged)
+  skillshare audit agents         # agents only
+  ```
+  The old `--all` flag is gone because audit now runs per kind and the Web UI has dedicated tabs
+
 ## [0.18.9] - 2026-04-07
 
 ### New Features

@@ -14,10 +14,10 @@ import (
 )
 
 type agentignoreStats struct {
-	PatternCount   int      `json:"pattern_count"`
-	IgnoredCount   int      `json:"ignored_count"`
-	Patterns       []string `json:"patterns"`
-	IgnoredAgents  []string `json:"ignored_agents"`
+	PatternCount  int      `json:"pattern_count"`
+	IgnoredCount  int      `json:"ignored_count"`
+	Patterns      []string `json:"patterns"`
+	IgnoredAgents []string `json:"ignored_agents"`
 }
 
 type agentignoreResponse struct {
