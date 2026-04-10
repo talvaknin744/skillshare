@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"skillshare/internal/audit"
+	"skillshare/internal/theme"
 	"skillshare/internal/ui"
 )
 
@@ -469,9 +470,9 @@ func formatCategoryBreakdownTUI(cats map[string]int) string {
 			label = short
 		}
 		if cc.count > 50 {
-			parts[i] = tc.Emphasis.Bold(true).Render(label+":") + tc.Emphasis.Bold(true).Render(fmt.Sprintf("%d", cc.count))
+			parts[i] = theme.Primary().Bold(true).Render(label+":") + theme.Primary().Bold(true).Render(fmt.Sprintf("%d", cc.count))
 		} else {
-			parts[i] = tc.Dim.Render(label + ":" + fmt.Sprintf("%d", cc.count))
+			parts[i] = theme.Dim().Render(label + ":" + fmt.Sprintf("%d", cc.count))
 		}
 	}
 	return strings.Join(parts, " ")

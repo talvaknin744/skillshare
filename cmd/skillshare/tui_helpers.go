@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"skillshare/internal/config"
+	"skillshare/internal/theme"
 	"skillshare/internal/ui"
 )
 
@@ -62,10 +63,10 @@ func formatHelpBar(raw string) string {
 		if idx := strings.IndexByte(pair, ' '); idx > 0 {
 			key := pair[:idx]
 			desc := pair[idx:]
-			parts = append(parts, tc.HelpKey.Render(key)+tc.Help.UnsetMarginLeft().Render(desc))
+			parts = append(parts, theme.Accent().Faint(true).Render(key)+theme.Dim().MarginLeft(2).UnsetMarginLeft().Render(desc))
 		} else {
 			// Single word (e.g. just a key)
-			parts = append(parts, tc.HelpKey.Render(pair))
+			parts = append(parts, theme.Accent().Faint(true).Render(pair))
 		}
 	}
 	return "  " + strings.Join(parts, "  ")
@@ -127,7 +128,7 @@ func renderHorizontalSplit(leftContent, rightContent string, leftWidth, rightWid
 		Height(panelHeight).MaxHeight(panelHeight).
 		Render(leftContent)
 
-	borderStyle := tc.Border.
+	borderStyle := theme.Dim().
 		Height(panelHeight).MaxHeight(panelHeight)
 	borderCol := strings.Repeat("│\n", panelHeight)
 	borderPanel := borderStyle.Render(strings.TrimRight(borderCol, "\n"))

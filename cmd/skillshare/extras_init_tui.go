@@ -5,9 +5,11 @@ import (
 	"strings"
 	"time"
 
+	"skillshare/internal/config"
+	"skillshare/internal/theme"
+
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"skillshare/internal/config"
 )
 
 type extrasInitPhase int
@@ -48,14 +50,14 @@ func newExtrasInitTUIModel() extrasInitTUIModel {
 	ti := textinput.New()
 	ti.Placeholder = "rules"
 	ti.Focus()
-	ti.PromptStyle = tc.Cyan
-	ti.Cursor.Style = tc.Cyan
+	ti.PromptStyle = theme.Accent()
+	ti.Cursor.Style = theme.Accent()
 
 	si := textinput.New()
 	si.Placeholder = "Leave empty to use default"
 	si.CharLimit = 256
-	si.PromptStyle = tc.Cyan
-	si.Cursor.Style = tc.Cyan
+	si.PromptStyle = theme.Accent()
+	si.Cursor.Style = theme.Accent()
 
 	return extrasInitTUIModel{
 		phase:       extrasPhaseNameInput,
@@ -238,32 +240,32 @@ func (m extrasInitTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m extrasInitTUIModel) View() string {
 	var b strings.Builder
 
-	b.WriteString(tc.Title.Render("Extras Init"))
+	b.WriteString(theme.Title().Render("Extras Init"))
 	b.WriteString("\n\n")
 
 	switch m.phase {
 	case extrasPhaseNameInput:
-		b.WriteString(tc.Cyan.Render("Extra name: "))
+		b.WriteString(theme.Accent().Render("Extra name: "))
 		b.WriteString(m.textInput.View())
 		if m.err != nil {
-			b.WriteString("\n" + tc.Red.Render(m.err.Error()))
+			b.WriteString("\n" + theme.Danger().Render(m.err.Error()))
 		}
 		b.WriteString("\n\n")
-		b.WriteString(tc.Help.Render("enter confirm  esc cancel"))
+		b.WriteString(theme.Dim().MarginLeft(2).Render("enter confirm  esc cancel"))
 
 	case extrasPhaseSourceInput:
-		b.WriteString(tc.Dim.Render(fmt.Sprintf("Name: %s", m.name)))
+		b.WriteString(theme.Dim().Render(fmt.Sprintf("Name: %s", m.name)))
 		b.WriteString("\n\n")
-		b.WriteString(tc.Cyan.Render("Source directory (optional): "))
+		b.WriteString(theme.Accent().Render("Source directory (optional): "))
 		b.WriteString(m.sourceInput.View())
 		b.WriteString("\n\n")
-		b.WriteString(tc.Help.Render("enter to skip (use default)  esc back"))
+		b.WriteString(theme.Dim().MarginLeft(2).Render("enter to skip (use default)  esc back"))
 
 	case extrasPhaseTargetInput:
-		b.WriteString(tc.Dim.Render(fmt.Sprintf("Name: %s", m.name)))
+		b.WriteString(theme.Dim().Render(fmt.Sprintf("Name: %s", m.name)))
 		if m.sourceValue != "" {
 			b.WriteString("\n")
-			b.WriteString(tc.Dim.Render(fmt.Sprintf("Source: %s", m.sourceValue)))
+			b.WriteString(theme.Dim().Render(fmt.Sprintf("Source: %s", m.sourceValue)))
 		}
 		if len(m.targets) > 0 {
 			b.WriteString("\n")
@@ -272,22 +274,22 @@ func (m extrasInitTUIModel) View() string {
 				if t.flatten {
 					modeLabel += ", flatten"
 				}
-				b.WriteString(tc.Dim.Render(fmt.Sprintf("  → %s (%s)", t.path, modeLabel)))
+				b.WriteString(theme.Dim().Render(fmt.Sprintf("  → %s (%s)", t.path, modeLabel)))
 				b.WriteString("\n")
 			}
 		}
 		b.WriteString("\n")
-		b.WriteString(tc.Cyan.Render(fmt.Sprintf("Target #%d path: ", len(m.targets)+1)))
+		b.WriteString(theme.Accent().Render(fmt.Sprintf("Target #%d path: ", len(m.targets)+1)))
 		b.WriteString(m.textInput.View())
 		b.WriteString("\n\n")
-		b.WriteString(tc.Help.Render("enter confirm  esc back"))
+		b.WriteString(theme.Dim().MarginLeft(2).Render("enter confirm  esc back"))
 
 	case extrasPhaseModeSelect:
-		b.WriteString(tc.Dim.Render(fmt.Sprintf("Name: %s", m.name)))
+		b.WriteString(theme.Dim().Render(fmt.Sprintf("Name: %s", m.name)))
 		b.WriteString("\n")
-		b.WriteString(tc.Dim.Render(fmt.Sprintf("Target: %s", m.targets[len(m.targets)-1].path)))
+		b.WriteString(theme.Dim().Render(fmt.Sprintf("Target: %s", m.targets[len(m.targets)-1].path)))
 		b.WriteString("\n\n")
-		b.WriteString(tc.Cyan.Render("Sync mode:"))
+		b.WriteString(theme.Accent().Render("Sync mode:"))
 		b.WriteString("\n")
 		for i, mode := range syncModes {
 			cursor := "  "
@@ -304,43 +306,43 @@ func (m extrasInitTUIModel) View() string {
 				desc = " (directory symlink)"
 			}
 			if i == m.currMode {
-				b.WriteString(tc.Cyan.Render(cursor+mode) + tc.Dim.Render(desc))
+				b.WriteString(theme.Accent().Render(cursor+mode) + theme.Dim().Render(desc))
 			} else {
-				b.WriteString(tc.Dim.Render(cursor + mode + desc))
+				b.WriteString(theme.Dim().Render(cursor + mode + desc))
 			}
 			b.WriteString("\n")
 		}
 		b.WriteString("\n")
-		b.WriteString(tc.Help.Render("↑↓/jk navigate  enter/space select  esc back"))
+		b.WriteString(theme.Dim().MarginLeft(2).Render("↑↓/jk navigate  enter/space select  esc back"))
 
 	case extrasPhaseFlattenToggle:
-		b.WriteString(tc.Dim.Render(fmt.Sprintf("Name: %s", m.name)))
+		b.WriteString(theme.Dim().Render(fmt.Sprintf("Name: %s", m.name)))
 		b.WriteString("\n")
 		lastTarget := m.targets[len(m.targets)-1]
-		b.WriteString(tc.Dim.Render(fmt.Sprintf("Target: %s (%s)", lastTarget.path, lastTarget.mode)))
+		b.WriteString(theme.Dim().Render(fmt.Sprintf("Target: %s (%s)", lastTarget.path, lastTarget.mode)))
 		b.WriteString("\n\n")
-		b.WriteString(tc.Cyan.Render("Flatten files into target root? (y/N) "))
+		b.WriteString(theme.Accent().Render("Flatten files into target root? (y/N) "))
 		b.WriteString("\n\n")
-		b.WriteString(tc.Help.Render("y yes  n/enter no  esc back"))
+		b.WriteString(theme.Dim().MarginLeft(2).Render("y yes  n/enter no  esc back"))
 
 	case extrasPhaseAddMore:
-		b.WriteString(tc.Dim.Render(fmt.Sprintf("Name: %s", m.name)))
+		b.WriteString(theme.Dim().Render(fmt.Sprintf("Name: %s", m.name)))
 		b.WriteString("\n")
 		for _, t := range m.targets {
 			modeLabel := t.mode
 			if t.flatten {
 				modeLabel += ", flatten"
 			}
-			b.WriteString(tc.Dim.Render(fmt.Sprintf("  → %s (%s)", t.path, modeLabel)))
+			b.WriteString(theme.Dim().Render(fmt.Sprintf("  → %s (%s)", t.path, modeLabel)))
 			b.WriteString("\n")
 		}
 		b.WriteString("\n")
-		b.WriteString(tc.Cyan.Render("Add another target? (y/N) "))
+		b.WriteString(theme.Accent().Render("Add another target? (y/N) "))
 		b.WriteString("\n\n")
-		b.WriteString(tc.Help.Render("y yes  n/enter no  esc back"))
+		b.WriteString(theme.Dim().MarginLeft(2).Render("y yes  n/enter no  esc back"))
 
 	case extrasPhaseConfirm:
-		b.WriteString(tc.Cyan.Render("Summary:"))
+		b.WriteString(theme.Accent().Render("Summary:"))
 		b.WriteString("\n")
 		b.WriteString(fmt.Sprintf("  Name: %s\n", m.name))
 		if m.sourceValue != "" {
@@ -354,9 +356,9 @@ func (m extrasInitTUIModel) View() string {
 			b.WriteString(fmt.Sprintf("  → %s (%s)\n", t.path, modeLabel))
 		}
 		b.WriteString("\n")
-		b.WriteString(tc.Cyan.Render("Create this extra? (Y/n) "))
+		b.WriteString(theme.Accent().Render("Create this extra? (Y/n) "))
 		b.WriteString("\n\n")
-		b.WriteString(tc.Help.Render("y/enter confirm  n cancel"))
+		b.WriteString(theme.Dim().MarginLeft(2).Render("y/enter confirm  n cancel"))
 	}
 
 	return b.String()

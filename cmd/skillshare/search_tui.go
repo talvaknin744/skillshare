@@ -7,8 +7,10 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"skillshare/internal/search"
+	"skillshare/internal/theme"
 )
 
 // ---------------------------------------------------------------------------
@@ -116,7 +118,7 @@ func newSearchSelectModel(results []search.SearchResult, isHub bool) searchSelec
 
 	l := list.New(items, newPrefixDelegate(true), 0, 0)
 	l.Title = searchSelectTitle(0, len(results))
-	l.Styles.Title = tc.ListTitle
+	l.Styles.Title = theme.Title()
 	l.SetShowStatusBar(false)    // custom status line
 	l.SetFilteringEnabled(false) // application-level filter
 	l.SetShowHelp(false)
@@ -125,8 +127,8 @@ func newSearchSelectModel(results []search.SearchResult, isHub bool) searchSelec
 	// Filter text input
 	fi := textinput.New()
 	fi.Prompt = "/ "
-	fi.PromptStyle = tc.Filter
-	fi.Cursor.Style = tc.Filter
+	fi.PromptStyle = theme.Accent()
+	fi.Cursor.Style = theme.Accent()
 
 	return searchSelectModel{
 		list:        l,
@@ -319,7 +321,7 @@ func (m searchSelectModel) View() string {
 	}
 
 	help := "↑↓ navigate  ←→ page  space toggle  a all  enter install  s search again  / filter  esc cancel"
-	b.WriteString(tc.Help.Render(help))
+	b.WriteString(theme.Dim().MarginLeft(2).Render(help))
 	b.WriteString("\n")
 
 	return b.String()
@@ -337,13 +339,13 @@ func (m searchSelectModel) renderSearchFilterBar() string {
 // renderSearchDetailPanel renders the detail section for the selected search result.
 func (m searchSelectModel) renderSearchDetailPanel(r search.SearchResult) string {
 	var b strings.Builder
-	b.WriteString(tc.Separator.Render("  ─────────────────────────────────────────"))
+	b.WriteString(theme.Dim().Render("  ─────────────────────────────────────────"))
 	b.WriteString("\n")
 
 	row := func(label, value string) {
 		b.WriteString("  ")
-		b.WriteString(tc.Label.Render(label))
-		b.WriteString(tc.Value.Render(value))
+		b.WriteString(theme.Dim().Width(14).Render(label))
+		b.WriteString(lipgloss.NewStyle().Render(value))
 		b.WriteString("\n")
 	}
 
@@ -365,7 +367,7 @@ func (m searchSelectModel) renderSearchDetailPanel(r search.SearchResult) string
 		indent := strings.Repeat(" ", labelOffset)
 		for _, line := range lines[1:] {
 			b.WriteString(indent)
-			b.WriteString(tc.Value.Render(line))
+			b.WriteString(lipgloss.NewStyle().Render(line))
 			b.WriteString("\n")
 		}
 		b.WriteString("\n")
@@ -390,7 +392,7 @@ func (m searchSelectModel) renderSearchDetailPanel(r search.SearchResult) string
 		for i, tag := range r.Tags {
 			tags[i] = "#" + tag
 		}
-		row("Tags:", tc.Target.Render(strings.Join(tags, "  ")))
+		row("Tags:", theme.Accent().Render(strings.Join(tags, "  ")))
 	}
 
 	return b.String()

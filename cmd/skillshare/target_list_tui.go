@@ -9,6 +9,7 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/sync"
 	"skillshare/internal/targetsummary"
+	"skillshare/internal/theme"
 
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
@@ -112,7 +113,7 @@ func newTargetListTUIModel(
 
 	l := list.New(nil, delegate, 0, 0)
 	l.Title = fmt.Sprintf("Targets (%s)", modeLabel)
-	l.Styles.Title = tc.ListTitle
+	l.Styles.Title = theme.Title()
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
 	l.SetShowHelp(false)
@@ -120,18 +121,18 @@ func newTargetListTUIModel(
 
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
-	sp.Style = tc.SpinnerStyle
+	sp.Style = theme.Accent()
 
 	fi := textinput.New()
 	fi.Prompt = "/ "
-	fi.PromptStyle = tc.Filter
-	fi.Cursor.Style = tc.Filter
+	fi.PromptStyle = theme.Accent()
+	fi.Cursor.Style = theme.Accent()
 	fi.Placeholder = "filter by name"
 
 	ei := textinput.New()
 	ei.Prompt = "> pattern: "
-	ei.PromptStyle = tc.Cyan
-	ei.Cursor.Style = tc.Cyan
+	ei.PromptStyle = theme.Accent()
+	ei.Cursor.Style = theme.Accent()
 	ei.Placeholder = "glob pattern"
 
 	return targetListTUIModel{
@@ -895,12 +896,12 @@ func (m targetListTUIModel) viewTargetVertical() string {
 
 func renderTargetActionMsg(msg string) string {
 	if strings.HasPrefix(msg, "✓") {
-		return tc.Green.Render(msg)
+		return theme.Success().Render(msg)
 	}
 	if strings.HasPrefix(msg, "✗") {
-		return tc.Red.Render(msg)
+		return theme.Danger().Render(msg)
 	}
-	return tc.Yellow.Render(msg)
+	return theme.Warning().Render(msg)
 }
 
 func (m targetListTUIModel) renderTargetHelp(scrollInfo string) string {
@@ -908,7 +909,7 @@ func (m targetListTUIModel) renderTargetHelp(scrollInfo string) string {
 	if m.filtering {
 		helpText = "Enter lock  Esc clear  q quit"
 	}
-	return tc.Help.Render(appendScrollInfo(helpText, scrollInfo))
+	return theme.Dim().MarginLeft(2).Render(appendScrollInfo(helpText, scrollInfo))
 }
 
 func (m targetListTUIModel) renderTargetFilterBar() string {
@@ -955,34 +956,34 @@ func (m *targetListTUIModel) syncTargetListSize() {
 func (m targetListTUIModel) renderTargetDetail(item targetTUIItem) string {
 	var b strings.Builder
 
-	fmt.Fprintf(&b, "%s\n\n", tc.Title.Render(item.name))
+	fmt.Fprintf(&b, "%s\n\n", theme.Title().Render(item.name))
 
 	sc := item.target.SkillsConfig()
 	displayPath := item.displayPath
 	if displayPath == "" {
 		displayPath = sc.Path
 	}
-	fmt.Fprintf(&b, "%s\n", tc.Dim.Render("Skills:"))
-	fmt.Fprintf(&b, "%s  %s\n", tc.Dim.Render("Path:"), shortenPath(displayPath))
-	fmt.Fprintf(&b, "%s  %s\n", tc.Dim.Render("Mode:"), sync.EffectiveMode(sc.Mode))
-	fmt.Fprintf(&b, "%s  %s\n", tc.Dim.Render("Naming:"), config.EffectiveTargetNaming(sc.TargetNaming))
-	fmt.Fprintf(&b, "%s  %s\n", tc.Dim.Render("Sync:"), item.skillSync)
+	fmt.Fprintf(&b, "%s\n", theme.Dim().Render("Skills:"))
+	fmt.Fprintf(&b, "%s  %s\n", theme.Dim().Render("Path:"), shortenPath(displayPath))
+	fmt.Fprintf(&b, "%s  %s\n", theme.Dim().Render("Mode:"), sync.EffectiveMode(sc.Mode))
+	fmt.Fprintf(&b, "%s  %s\n", theme.Dim().Render("Naming:"), config.EffectiveTargetNaming(sc.TargetNaming))
+	fmt.Fprintf(&b, "%s  %s\n", theme.Dim().Render("Sync:"), item.skillSync)
 
 	if len(sc.Include) > 0 {
-		fmt.Fprintf(&b, "\n%s\n", tc.Dim.Render("Include:"))
+		fmt.Fprintf(&b, "\n%s\n", theme.Dim().Render("Include:"))
 		for _, p := range sc.Include {
 			fmt.Fprintf(&b, "  %s\n", p)
 		}
 	}
 	if len(sc.Exclude) > 0 {
-		fmt.Fprintf(&b, "\n%s\n", tc.Dim.Render("Exclude:"))
+		fmt.Fprintf(&b, "\n%s\n", theme.Dim().Render("Exclude:"))
 		for _, p := range sc.Exclude {
 			fmt.Fprintf(&b, "  %s\n", p)
 		}
 	}
 
 	if len(sc.Include) == 0 && len(sc.Exclude) == 0 {
-		fmt.Fprintf(&b, "\n%s\n", tc.Dim.Render("No include/exclude filters"))
+		fmt.Fprintf(&b, "\n%s\n", theme.Dim().Render("No include/exclude filters"))
 	}
 
 	if item.agentSummary != nil {
@@ -991,27 +992,27 @@ func (m targetListTUIModel) renderTargetDetail(item targetTUIItem) string {
 			agentPath = item.agentSummary.Path
 		}
 
-		fmt.Fprintf(&b, "\n%s\n", tc.Dim.Render("Agents:"))
-		fmt.Fprintf(&b, "%s  %s\n", tc.Dim.Render("Path:"), shortenPath(agentPath))
-		fmt.Fprintf(&b, "%s  %s\n", tc.Dim.Render("Mode:"), item.agentSummary.Mode)
-		fmt.Fprintf(&b, "%s  %s\n", tc.Dim.Render("Sync:"), formatTargetAgentSyncSummary(item.agentSummary))
+		fmt.Fprintf(&b, "\n%s\n", theme.Dim().Render("Agents:"))
+		fmt.Fprintf(&b, "%s  %s\n", theme.Dim().Render("Path:"), shortenPath(agentPath))
+		fmt.Fprintf(&b, "%s  %s\n", theme.Dim().Render("Mode:"), item.agentSummary.Mode)
+		fmt.Fprintf(&b, "%s  %s\n", theme.Dim().Render("Sync:"), formatTargetAgentSyncSummary(item.agentSummary))
 
 		if item.agentSummary.Mode == "symlink" {
-			fmt.Fprintf(&b, "\n%s\n", tc.Dim.Render("Agent include/exclude filters ignored in symlink mode"))
+			fmt.Fprintf(&b, "\n%s\n", theme.Dim().Render("Agent include/exclude filters ignored in symlink mode"))
 		} else if len(item.agentSummary.Include) > 0 {
-			fmt.Fprintf(&b, "\n%s\n", tc.Dim.Render("Agent Include:"))
+			fmt.Fprintf(&b, "\n%s\n", theme.Dim().Render("Agent Include:"))
 			for _, p := range item.agentSummary.Include {
 				fmt.Fprintf(&b, "  %s\n", p)
 			}
 		}
 		if item.agentSummary.Mode != "symlink" && len(item.agentSummary.Exclude) > 0 {
-			fmt.Fprintf(&b, "\n%s\n", tc.Dim.Render("Agent Exclude:"))
+			fmt.Fprintf(&b, "\n%s\n", theme.Dim().Render("Agent Exclude:"))
 			for _, p := range item.agentSummary.Exclude {
 				fmt.Fprintf(&b, "  %s\n", p)
 			}
 		}
 		if item.agentSummary.Mode != "symlink" && len(item.agentSummary.Include) == 0 && len(item.agentSummary.Exclude) == 0 {
-			fmt.Fprintf(&b, "\n%s\n", tc.Dim.Render("No agent include/exclude filters"))
+			fmt.Fprintf(&b, "\n%s\n", theme.Dim().Render("No agent include/exclude filters"))
 		}
 	}
 
@@ -1040,19 +1041,19 @@ func (m targetListTUIModel) renderConfirmOverlay() string {
 	}
 	cmd := fmt.Sprintf("skillshare target remove %s %s", flag, m.confirmTarget)
 	return fmt.Sprintf("\n  %s\n\n  → %s\n\n  Proceed? [Y/n] ",
-		tc.Red.Render("Remove target "+m.confirmTarget+"?"), cmd)
+		theme.Danger().Render("Remove target "+m.confirmTarget+"?"), cmd)
 }
 
 func (m targetListTUIModel) renderModePicker() string {
 	var b strings.Builder
 
-	fmt.Fprintf(&b, "\n%s\n", tc.Title.Render("Change "+m.modePickerScope+" mode"))
-	fmt.Fprintf(&b, "%s  %s\n\n", tc.Dim.Render("Target:"), m.modePickerTarget)
+	fmt.Fprintf(&b, "\n%s\n", theme.Title().Render("Change "+m.modePickerScope+" mode"))
+	fmt.Fprintf(&b, "%s  %s\n\n", theme.Dim().Render("Target:"), m.modePickerTarget)
 
 	for i, mode := range targetSyncModes {
 		cursor := "  "
 		if i == m.modeCursor {
-			cursor = tc.Cyan.Render(">") + " "
+			cursor = theme.Accent().Render(">") + " "
 		}
 		var desc string
 		switch mode {
@@ -1064,13 +1065,13 @@ func (m targetListTUIModel) renderModePicker() string {
 			desc = " (directory symlink)"
 		}
 		if i == m.modeCursor {
-			fmt.Fprintf(&b, "%s%s%s\n", cursor, tc.Cyan.Render(mode), tc.Dim.Render(desc))
+			fmt.Fprintf(&b, "%s%s%s\n", cursor, theme.Accent().Render(mode), theme.Dim().Render(desc))
 		} else {
-			fmt.Fprintf(&b, "%s%s%s\n", cursor, mode, tc.Dim.Render(desc))
+			fmt.Fprintf(&b, "%s%s%s\n", cursor, mode, theme.Dim().Render(desc))
 		}
 	}
 
-	fmt.Fprintf(&b, "\n%s\n", tc.Help.Render("↑↓ select  Enter confirm  Esc cancel"))
+	fmt.Fprintf(&b, "\n%s\n", theme.Dim().MarginLeft(2).Render("↑↓ select  Enter confirm  Esc cancel"))
 	return b.String()
 }
 
@@ -1082,41 +1083,41 @@ func (m targetListTUIModel) renderScopePicker() string {
 	}
 	options := targetScopeOptions(item, m.scopePickerAction)
 
-	fmt.Fprintf(&b, "\n%s\n", tc.Title.Render("Choose resource"))
-	fmt.Fprintf(&b, "%s  %s\n", tc.Dim.Render("Target:"), m.scopePickerTarget)
-	fmt.Fprintf(&b, "%s  %s\n\n", tc.Dim.Render("Action:"), m.scopePickerAction)
+	fmt.Fprintf(&b, "\n%s\n", theme.Title().Render("Choose resource"))
+	fmt.Fprintf(&b, "%s  %s\n", theme.Dim().Render("Target:"), m.scopePickerTarget)
+	fmt.Fprintf(&b, "%s  %s\n\n", theme.Dim().Render("Action:"), m.scopePickerAction)
 
 	for i, option := range options {
 		cursor := "  "
 		if i == m.scopePickerCursor {
-			cursor = tc.Cyan.Render(">") + " "
+			cursor = theme.Accent().Render(">") + " "
 		}
 		label := capitalize(option.scope)
 		if option.enabled {
 			if i == m.scopePickerCursor {
-				fmt.Fprintf(&b, "%s%s\n", cursor, tc.Cyan.Render(label))
+				fmt.Fprintf(&b, "%s%s\n", cursor, theme.Accent().Render(label))
 			} else {
 				fmt.Fprintf(&b, "%s%s\n", cursor, label)
 			}
 			continue
 		}
-		fmt.Fprintf(&b, "%s%s%s\n", cursor, tc.Dim.Render(label), tc.Dim.Render(" ("+option.disabled+")"))
+		fmt.Fprintf(&b, "%s%s%s\n", cursor, theme.Dim().Render(label), theme.Dim().Render(" ("+option.disabled+")"))
 	}
 
-	fmt.Fprintf(&b, "\n%s\n", tc.Help.Render("↑↓ select  Enter confirm  Esc cancel"))
+	fmt.Fprintf(&b, "\n%s\n", theme.Dim().MarginLeft(2).Render("↑↓ select  Enter confirm  Esc cancel"))
 	return b.String()
 }
 
 func (m targetListTUIModel) renderNamingPicker() string {
 	var b strings.Builder
 
-	fmt.Fprintf(&b, "\n%s\n", tc.Title.Render("Change target naming"))
-	fmt.Fprintf(&b, "%s  %s\n\n", tc.Dim.Render("Target:"), m.namingPickerTarget)
+	fmt.Fprintf(&b, "\n%s\n", theme.Title().Render("Change target naming"))
+	fmt.Fprintf(&b, "%s  %s\n\n", theme.Dim().Render("Target:"), m.namingPickerTarget)
 
 	for i, naming := range config.ValidTargetNamings {
 		cursor := "  "
 		if i == m.namingCursor {
-			cursor = tc.Cyan.Render(">") + " "
+			cursor = theme.Accent().Render(">") + " "
 		}
 		var desc string
 		switch naming {
@@ -1126,13 +1127,13 @@ func (m targetListTUIModel) renderNamingPicker() string {
 			desc = " (SKILL.md name)"
 		}
 		if i == m.namingCursor {
-			fmt.Fprintf(&b, "%s%s%s\n", cursor, tc.Cyan.Render(naming), tc.Dim.Render(desc))
+			fmt.Fprintf(&b, "%s%s%s\n", cursor, theme.Accent().Render(naming), theme.Dim().Render(desc))
 		} else {
-			fmt.Fprintf(&b, "%s%s%s\n", cursor, naming, tc.Dim.Render(desc))
+			fmt.Fprintf(&b, "%s%s%s\n", cursor, naming, theme.Dim().Render(desc))
 		}
 	}
 
-	fmt.Fprintf(&b, "\n%s\n", tc.Help.Render("↑↓ select  Enter confirm  Esc cancel"))
+	fmt.Fprintf(&b, "\n%s\n", theme.Dim().MarginLeft(2).Render("↑↓ select  Enter confirm  Esc cancel"))
 	return b.String()
 }
 
@@ -1140,15 +1141,15 @@ func (m targetListTUIModel) renderFilterEditPanel() string {
 	var b strings.Builder
 
 	title := capitalize(m.editFilterType)
-	fmt.Fprintf(&b, "%s %s\n", tc.Title.Render(title+" "+m.editFilterScope+" patterns"), tc.Dim.Render("("+m.editFilterTarget+")"))
+	fmt.Fprintf(&b, "%s %s\n", theme.Title().Render(title+" "+m.editFilterScope+" patterns"), theme.Dim().Render("("+m.editFilterTarget+")"))
 	fmt.Fprintln(&b)
 
 	if len(m.editPatterns) == 0 {
-		fmt.Fprintf(&b, "  %s\n", tc.Dim.Render("(empty)"))
+		fmt.Fprintf(&b, "  %s\n", theme.Dim().Render("(empty)"))
 	} else {
 		for i, p := range m.editPatterns {
 			if i == m.editCursor {
-				fmt.Fprintf(&b, "  %s %s\n", tc.Cyan.Render(">"), tc.Cyan.Render(p))
+				fmt.Fprintf(&b, "  %s %s\n", theme.Accent().Render(">"), theme.Accent().Render(p))
 			} else {
 				fmt.Fprintf(&b, "    %s\n", p)
 			}
@@ -1162,9 +1163,9 @@ func (m targetListTUIModel) renderFilterEditPanel() string {
 
 	fmt.Fprintln(&b)
 	if m.editAdding {
-		fmt.Fprintf(&b, "%s\n", tc.Help.Render("Enter confirm  Esc cancel"))
+		fmt.Fprintf(&b, "%s\n", theme.Dim().MarginLeft(2).Render("Enter confirm  Esc cancel"))
 	} else {
-		fmt.Fprintf(&b, "%s\n", tc.Help.Render("a add  d delete  esc back"))
+		fmt.Fprintf(&b, "%s\n", theme.Dim().MarginLeft(2).Render("a add  d delete  esc back"))
 	}
 	return b.String()
 }

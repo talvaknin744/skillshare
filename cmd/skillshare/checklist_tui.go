@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"skillshare/internal/theme"
+
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -96,7 +98,7 @@ func newChecklistModel(cfg checklistConfig) checklistModel {
 	listItems := makeChecklistItems(cfg.items, sel, cfg.singleSelect)
 
 	l := list.New(listItems, newPrefixDelegate(hasDesc), 0, 0)
-	l.Styles.Title = tc.ListTitle
+	l.Styles.Title = theme.Title()
 	l.SetShowStatusBar(true)
 	l.SetFilteringEnabled(true)
 	l.SetShowHelp(false)
@@ -274,7 +276,7 @@ func (m checklistModel) View() string {
 	if m.header != "" {
 		help += "  │  " + m.header
 	}
-	b.WriteString(tc.Help.Render(help))
+	b.WriteString(theme.Dim().MarginLeft(2).Render(help))
 	b.WriteString("\n")
 
 	return b.String()

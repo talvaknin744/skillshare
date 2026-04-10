@@ -14,6 +14,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"skillshare/internal/theme"
 	"skillshare/internal/trash"
 )
 
@@ -36,9 +37,9 @@ func (i trashItem) Title() string {
 	}
 	var kindBadge string
 	if i.entry.Kind == "agent" {
-		kindBadge = tc.Cyan.Render("[A]") + " "
+		kindBadge = theme.Accent().Render("[A]") + " "
 	} else {
-		kindBadge = tc.Cyan.Render("[S]") + " "
+		kindBadge = theme.Accent().Render("[S]") + " "
 	}
 	age := formatAge(time.Since(i.entry.Date))
 	size := formatBytes(i.entry.Size)
@@ -110,7 +111,7 @@ func newTrashTUIModel(items []trash.TrashEntry, skillTrashBase, agentTrashBase, 
 
 	l := list.New(listItems, newPrefixDelegate(false), 0, 0)
 	l.Title = trashTUITitle(modeLabel, len(items))
-	l.Styles.Title = tc.ListTitle
+	l.Styles.Title = theme.Title()
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
 	l.SetShowHelp(false)
@@ -119,13 +120,13 @@ func newTrashTUIModel(items []trash.TrashEntry, skillTrashBase, agentTrashBase, 
 	// Spinner for operations
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
-	sp.Style = tc.SpinnerStyle
+	sp.Style = theme.Accent()
 
 	// Filter text input
 	fi := textinput.New()
 	fi.Prompt = "/ "
-	fi.PromptStyle = tc.Filter
-	fi.Cursor.Style = tc.Filter
+	fi.PromptStyle = theme.Accent()
+	fi.Cursor.Style = theme.Accent()
 
 	return trashTUIModel{
 		list:           l,
@@ -233,12 +234,12 @@ func (m trashTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		verb := capitalize(msg.action) + "d"
 		switch {
 		case msg.err != nil && msg.count > 0:
-			m.lastOpMsg = tc.Green.Render(fmt.Sprintf("%s %d item(s)", verb, msg.count)) +
-				"  " + tc.Red.Render(fmt.Sprintf("Failed: %s", msg.err))
+			m.lastOpMsg = theme.Success().Render(fmt.Sprintf("%s %d item(s)", verb, msg.count)) +
+				"  " + theme.Danger().Render(fmt.Sprintf("Failed: %s", msg.err))
 		case msg.err != nil:
-			m.lastOpMsg = tc.Red.Render(fmt.Sprintf("Error: %s", msg.err))
+			m.lastOpMsg = theme.Danger().Render(fmt.Sprintf("Error: %s", msg.err))
 		default:
-			m.lastOpMsg = tc.Green.Render(fmt.Sprintf("%s %d item(s)", verb, msg.count))
+			m.lastOpMsg = theme.Success().Render(fmt.Sprintf("%s %d item(s)", verb, msg.count))
 		}
 		m.rebuildFromEntries(msg.reloadedItems)
 		return m, nil
@@ -650,7 +651,7 @@ func (m trashTUIModel) viewTrashSplit() string {
 	}
 
 	help := appendScrollInfo(m.trashHelpBar(), scrollInfo)
-	b.WriteString(tc.Help.Render(help))
+	b.WriteString(theme.Dim().MarginLeft(2).Render(help))
 	b.WriteString("\n")
 
 	return b.String()
@@ -686,7 +687,7 @@ func (m trashTUIModel) viewTrashVertical() string {
 	}
 
 	help := appendScrollInfo(m.trashHelpBar(), scrollInfo)
-	b.WriteString(tc.Help.Render(help))
+	b.WriteString(theme.Dim().MarginLeft(2).Render(help))
 	b.WriteString("\n")
 
 	return b.String()
@@ -704,11 +705,11 @@ func (m trashTUIModel) viewConfirm() string {
 		b.WriteString("\n")
 	case "delete":
 		b.WriteString("  ")
-		b.WriteString(tc.Red.Render(fmt.Sprintf("Permanently delete %d item(s)?", len(m.confirmNames))))
+		b.WriteString(theme.Danger().Render(fmt.Sprintf("Permanently delete %d item(s)?", len(m.confirmNames))))
 		b.WriteString("\n\n")
 	case "empty":
 		b.WriteString("  ")
-		b.WriteString(tc.Red.Render(fmt.Sprintf("Empty trash — permanently delete ALL %d item(s)?", len(m.confirmNames))))
+		b.WriteString(theme.Danger().Render(fmt.Sprintf("Empty trash — permanently delete ALL %d item(s)?", len(m.confirmNames))))
 		b.WriteString("\n\n")
 	}
 
@@ -725,7 +726,7 @@ func (m trashTUIModel) viewConfirm() string {
 	}
 
 	b.WriteString("\n  ")
-	b.WriteString(tc.Help.Render("y confirm  n cancel"))
+	b.WriteString(theme.Dim().MarginLeft(2).Render("y confirm  n cancel"))
 	b.WriteString("\n")
 
 	return b.String()
@@ -793,11 +794,11 @@ func (m trashTUIModel) renderTrashSummaryFooter() string {
 		totalSize += item.entry.Size
 	}
 	parts := []string{
-		tc.Emphasis.Render(formatNumber(m.matchCount)) + tc.Dim.Render("/") +
-			tc.Dim.Render(formatNumber(len(m.allItems))) + tc.Dim.Render(" items"),
-		tc.Dim.Render("Total: ") + tc.Cyan.Render(formatBytes(totalSize)),
+		theme.Primary().Render(formatNumber(m.matchCount)) + theme.Dim().Render("/") +
+			theme.Dim().Render(formatNumber(len(m.allItems))) + theme.Dim().Render(" items"),
+		theme.Dim().Render("Total: ") + theme.Accent().Render(formatBytes(totalSize)),
 	}
-	return tc.Help.Render(strings.Join(parts, tc.Dim.Render(" | "))) + "\n"
+	return theme.Dim().MarginLeft(2).Render(strings.Join(parts, theme.Dim().Render(" | "))) + "\n"
 }
 
 // renderTrashDetailPanel renders the detail section for the selected trash entry.
@@ -805,7 +806,7 @@ func (m trashTUIModel) renderTrashDetailPanel(entry trash.TrashEntry, width int)
 	var b strings.Builder
 
 	// Header: bold skill name
-	b.WriteString(tc.Title.Render(entry.Name))
+	b.WriteString(theme.Title().Render(entry.Name))
 	b.WriteString("\n\n")
 
 	// Metadata rows
@@ -813,14 +814,14 @@ func (m trashTUIModel) renderTrashDetailPanel(entry trash.TrashEntry, width int)
 	row := func(label, value string) {
 		b.WriteString(labelStyle.Render(label + ":"))
 		b.WriteString(" ")
-		b.WriteString(tc.Value.Render(value))
+		b.WriteString(lipgloss.NewStyle().Render(value))
 		b.WriteString("\n")
 	}
 
 	if entry.Kind == "agent" {
-		row("Type", tc.Cyan.Render("Agent"))
+		row("Type", theme.Accent().Render("Agent"))
 	} else {
-		row("Type", tc.Cyan.Render("Skill"))
+		row("Type", theme.Accent().Render("Skill"))
 	}
 	row("Trashed", entry.Date.Format("2006-01-02 15:04:05"))
 	row("Age", formatAge(time.Since(entry.Date))+" ago")
@@ -860,10 +861,10 @@ func (m trashTUIModel) renderTrashDetailPanel(entry trash.TrashEntry, width int)
 			preview := strings.TrimRight(strings.Join(lines, "\n"), "\n")
 			if preview != "" {
 				b.WriteString("\n")
-				b.WriteString(tc.Title.Render(previewTitle))
+				b.WriteString(theme.Title().Render(previewTitle))
 				b.WriteString("\n")
 				for _, line := range strings.Split(preview, "\n") {
-					b.WriteString(tc.Dim.Render(line))
+					b.WriteString(theme.Dim().Render(line))
 					b.WriteString("\n")
 				}
 			}

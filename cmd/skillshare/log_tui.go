@@ -6,24 +6,16 @@ import (
 	"strings"
 	"time"
 
+	"skillshare/internal/oplog"
+	"skillshare/internal/theme"
+	"skillshare/internal/ui"
+
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-
-	"skillshare/internal/oplog"
-	"skillshare/internal/ui"
 )
-
-// lc holds log-specific styles that don't belong in the shared tc palette.
-var lc = struct {
-	Bold  lipgloss.Style // counts, totals — bold without color
-	Label lipgloss.Style // row labels — wider (22) than tc.Label (14)
-}{
-	Bold:  lipgloss.NewStyle().Bold(true),
-	Label: lipgloss.NewStyle().Faint(true).Width(22),
-}
 
 // logLoadFn is a function that loads log items (runs in a goroutine inside the TUI).
 type logLoadFn func() ([]logItem, error)
@@ -95,7 +87,7 @@ func newLogTUIModel(loadFn logLoadFn, items []logItem, logLabel, modeLabel, conf
 
 	l := list.New(listItems, newPrefixDelegate(false), 0, 0)
 	l.Title = fmt.Sprintf("Log: %s (%s)", logLabel, modeLabel)
-	l.Styles.Title = tc.ListTitle
+	l.Styles.Title = theme.Title()
 	l.SetShowStatusBar(false)    // custom status line
 	l.SetFilteringEnabled(false) // application-level filter
 	l.SetShowHelp(false)
@@ -104,13 +96,13 @@ func newLogTUIModel(loadFn logLoadFn, items []logItem, logLabel, modeLabel, conf
 	// Loading spinner
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
-	sp.Style = tc.SpinnerStyle
+	sp.Style = theme.Accent()
 
 	// Filter text input
 	fi := textinput.New()
 	fi.Prompt = "/ "
-	fi.PromptStyle = tc.Filter
-	fi.Cursor.Style = tc.Filter
+	fi.PromptStyle = theme.Accent()
+	fi.Cursor.Style = theme.Accent()
 
 	return logTUIModel{
 		list:        l,
@@ -534,7 +526,7 @@ func (m logTUIModel) View() string {
 		b.WriteString("\n")
 
 		help := "s back to list  q quit"
-		b.WriteString(tc.Help.Render(help))
+		b.WriteString(theme.Dim().MarginLeft(2).Render(help))
 		b.WriteString("\n")
 		return b.String()
 	}
@@ -571,7 +563,7 @@ func (m logTUIModel) View() string {
 	b.WriteString(m.renderStatsFooter())
 	b.WriteString("\n")
 
-	b.WriteString(tc.Help.Render(appendScrollInfo(m.logHelpBar(), scrollInfo)))
+	b.WriteString(theme.Dim().MarginLeft(2).Render(appendScrollInfo(m.logHelpBar(), scrollInfo)))
 	b.WriteString("\n")
 
 	return b.String()
@@ -596,7 +588,7 @@ func (m logTUIModel) viewVertical() string {
 
 	b.WriteString(m.renderStatsFooter())
 
-	b.WriteString(tc.Help.Render(appendScrollInfo(m.logHelpBar(), scrollInfo)))
+	b.WriteString(theme.Dim().MarginLeft(2).Render(appendScrollInfo(m.logHelpBar(), scrollInfo)))
 	b.WriteString("\n")
 
 	return b.String()
@@ -622,7 +614,7 @@ func (m logTUIModel) logHelpBar() string {
 	help := strings.Join(parts, "  ")
 
 	if m.lastDeletedMsg != "" {
-		help = tc.Green.Render(m.lastDeletedMsg) + "  " + help
+		help = theme.Success().Render(m.lastDeletedMsg) + "  " + help
 	}
 
 	return help
@@ -665,8 +657,8 @@ func renderLogDetailPanel(item logItem) string {
 	var b strings.Builder
 
 	row := func(label, value string) {
-		b.WriteString(lc.Label.Render(label))
-		b.WriteString(tc.Value.Render(value))
+		b.WriteString(theme.Dim().Width(22).Render(label))
+		b.WriteString(lipgloss.NewStyle().Render(value))
 		b.WriteString("\n")
 	}
 
@@ -676,17 +668,17 @@ func renderLogDetailPanel(item logItem) string {
 	row("Timestamp:", e.Timestamp)
 
 	// Command — cyan to match CLI palette
-	row("Command:", tc.Cyan.Render(strings.ToUpper(e.Command)))
+	row("Command:", theme.Accent().Render(strings.ToUpper(e.Command)))
 
 	// Status with color
 	statusDisplay := e.Status
 	switch e.Status {
 	case "ok":
-		statusDisplay = tc.Green.Render(e.Status)
+		statusDisplay = theme.Success().Render(e.Status)
 	case "error", "blocked":
-		statusDisplay = tc.Red.Render(e.Status)
+		statusDisplay = theme.Danger().Render(e.Status)
 	case "partial":
-		statusDisplay = tc.Yellow.Render(e.Status)
+		statusDisplay = theme.Warning().Render(e.Status)
 	}
 	row("Status:", statusDisplay)
 
@@ -712,7 +704,7 @@ func renderLogDetailPanel(item logItem) string {
 	for _, p := range pairs {
 		// List fields: render as multi-line bullet list for readability
 		if p.isList && len(p.listValues) > 0 {
-			b.WriteString(lc.Label.Render(p.key + ":"))
+			b.WriteString(theme.Dim().Width(22).Render(p.key + ":"))
 			b.WriteString("\n")
 			show := p.listValues
 			remaining := 0
@@ -721,11 +713,11 @@ func renderLogDetailPanel(item logItem) string {
 				show = show[:maxBulletItems]
 			}
 			for _, v := range show {
-				b.WriteString("    - " + tc.Value.Render(v) + "\n")
+				b.WriteString("    - " + lipgloss.NewStyle().Render(v) + "\n")
 			}
 			if remaining > 0 {
 				summary := fmt.Sprintf("    ... and %d more", remaining)
-				b.WriteString(tc.Dim.Render(summary) + "\n")
+				b.WriteString(theme.Dim().Render(summary) + "\n")
 			}
 			continue
 		}
@@ -738,9 +730,9 @@ func renderLogDetailPanel(item logItem) string {
 		// Colorize only severity/status fields to avoid visual noise
 		switch {
 		case strings.Contains(p.key, "failed") || strings.Contains(p.key, "scan-errors"):
-			value = tc.Red.Render(value)
+			value = theme.Danger().Render(value)
 		case strings.Contains(p.key, "warning"):
-			value = tc.Yellow.Render(value)
+			value = theme.Warning().Render(value)
 		case p.key == "risk":
 			value = colorizeRiskValue(value)
 		case p.key == "threshold":
@@ -757,7 +749,7 @@ func renderLogDetailPanel(item logItem) string {
 
 // severityStyles maps the 5 severity levels (c/h/m/l/i) to lipgloss styles.
 var severityStyles = []lipgloss.Style{
-	tc.Critical, tc.High, tc.Medium, tc.Low, tc.Info,
+	theme.Severity("critical"), theme.Severity("high"), theme.Severity("medium"), theme.Severity("low"), theme.Severity("info"),
 }
 
 // colorizeSeverityBreakdown colors each number in "0/0/1/0/0" to match audit summary.
@@ -769,16 +761,16 @@ func colorizeSeverityBreakdown(value string) string {
 	for i, p := range parts {
 		parts[i] = severityStyles[i].Render(p)
 	}
-	sep := tc.Dim.Render("/")
+	sep := theme.Dim().Render("/")
 	return strings.Join(parts, sep)
 }
 
 // colorizeThreshold applies color based on audit threshold level.
 func colorizeThreshold(value string) string {
 	if ui.SeverityColorID(value) == "" {
-		return tc.Green.Render(value)
+		return theme.Success().Render(value)
 	}
-	return tcSevStyle(value).Render(value)
+	return theme.SeverityStyle(value).Render(value)
 }
 
 // colorizeRiskValue applies color based on the risk label embedded in the value string.
@@ -787,9 +779,9 @@ func colorizeRiskValue(value string) string {
 	sev := strings.SplitN(strings.ToUpper(value), " ", 2)[0]
 	sev = strings.TrimRight(sev, "(")
 	if ui.SeverityColorID(sev) == "" {
-		return tc.Green.Render(value)
+		return theme.Success().Render(value)
 	}
-	return tcSevStyle(sev).Render(value)
+	return theme.SeverityStyle(sev).Render(value)
 }
 
 // computeLogStatsFromItems converts logItems to oplog entries and computes stats.
@@ -810,21 +802,21 @@ func (m logTUIModel) renderStatsFooter() string {
 	rateStyle := statsSuccessRateColor(m.stats.SuccessRate)
 
 	parts := []string{
-		tc.Dim.Render(fmt.Sprintf("%d ops", m.stats.Total)),
+		theme.Dim().Render(fmt.Sprintf("%d ops", m.stats.Total)),
 		rateStyle.Render(fmt.Sprintf("✓ %.1f%%", m.stats.SuccessRate*100)),
 	}
 
 	if m.stats.LastOperation != nil {
 		ts, err := time.Parse(time.RFC3339, m.stats.LastOperation.Timestamp)
 		if err == nil {
-			lastPart := tc.Dim.Render("last: ") +
-				tc.Cyan.Render(m.stats.LastOperation.Command) +
-				tc.Dim.Render(fmt.Sprintf(" %s ago", formatRelativeTime(time.Since(ts))))
+			lastPart := theme.Dim().Render("last: ") +
+				theme.Accent().Render(m.stats.LastOperation.Command) +
+				theme.Dim().Render(fmt.Sprintf(" %s ago", formatRelativeTime(time.Since(ts))))
 			parts = append(parts, lastPart)
 		}
 	}
 
-	sep := tc.Dim.Render(" | ")
+	sep := theme.Dim().Render(" | ")
 	return "  " + strings.Join(parts, sep) + "\n"
 }
 
@@ -832,13 +824,13 @@ func (m logTUIModel) renderStatsFooter() string {
 func (m logTUIModel) renderStatsPanel() string {
 	var b strings.Builder
 
-	b.WriteString(tc.Title.Render("  Operation Log Summary"))
+	b.WriteString(theme.Title().Render("  Operation Log Summary"))
 	b.WriteString("\n")
-	b.WriteString(tc.Dim.Render("  " + strings.Repeat("─", 50)))
+	b.WriteString(theme.Dim().Render("  " + strings.Repeat("─", 50)))
 	b.WriteString("\n\n")
 
 	if m.stats.Total == 0 {
-		b.WriteString(tc.Dim.Render("  No entries"))
+		b.WriteString(theme.Dim().Render("  No entries"))
 		b.WriteString("\n")
 		return b.String()
 	}
@@ -850,20 +842,20 @@ func (m logTUIModel) renderStatsPanel() string {
 	}
 	rateColor := statsSuccessRateColor(m.stats.SuccessRate)
 	b.WriteString(fmt.Sprintf("  %s  %s\n\n",
-		tc.Dim.Render("Total:"),
-		lc.Bold.Render(fmt.Sprintf("%d", m.stats.Total)),
+		theme.Dim().Render("Total:"),
+		lipgloss.NewStyle().Bold(true).Render(fmt.Sprintf("%d", m.stats.Total)),
 	))
 	b.WriteString(fmt.Sprintf("  %s  %s %s\n\n",
-		tc.Dim.Render("OK:"),
+		theme.Dim().Render("OK:"),
 		rateColor.Render(fmt.Sprintf("%d/%d", okTotal, m.stats.Total)),
-		tc.Dim.Render(fmt.Sprintf("(%.1f%%)", m.stats.SuccessRate*100)),
+		theme.Dim().Render(fmt.Sprintf("(%.1f%%)", m.stats.SuccessRate*100)),
 	))
 
 	// ── Command breakdown with horizontal bars ──
 	header := fmt.Sprintf("  %-12s  %-20s  %s", "Command", "", "OK")
-	b.WriteString(tc.Dim.Render(header))
+	b.WriteString(theme.Dim().Render(header))
 	b.WriteString("\n")
-	b.WriteString(tc.Dim.Render("  " + strings.Repeat("─", 42)))
+	b.WriteString(theme.Dim().Render("  " + strings.Repeat("─", 42)))
 	b.WriteString("\n")
 
 	type cmdEntry struct {
@@ -899,21 +891,21 @@ func (m logTUIModel) renderStatsPanel() string {
 		}
 		errBarLen := barLen - okBarLen
 
-		cmdBar := tc.Green.Render(strings.Repeat("▓", okBarLen))
+		cmdBar := theme.Success().Render(strings.Repeat("▓", okBarLen))
 		if errBarLen > 0 {
-			cmdBar += tc.Red.Render(strings.Repeat("▓", errBarLen))
+			cmdBar += theme.Danger().Render(strings.Repeat("▓", errBarLen))
 		}
 		padding := strings.Repeat(" ", cmdBarWidth-barLen)
 
 		// "✓6/9" format — ok out of total, self-explanatory
 		okRatio := fmt.Sprintf("✓%d/%d", cmd.cs.OK, cmd.cs.Total)
-		ratioColor := tc.Green
+		ratioColor := theme.Success()
 		if cmd.cs.OK < cmd.cs.Total {
-			ratioColor = tc.Red
+			ratioColor = theme.Danger()
 		}
 
 		b.WriteString(fmt.Sprintf("  %s  %s%s  %s\n",
-			tc.Dim.Render(fmt.Sprintf("%-12s", cmd.name)),
+			theme.Dim().Render(fmt.Sprintf("%-12s", cmd.name)),
 			cmdBar, padding, ratioColor.Render(okRatio)))
 	}
 
@@ -928,19 +920,19 @@ func (m logTUIModel) renderStatsPanel() string {
 		blockedTotal += cs.Blocked
 	}
 
-	b.WriteString(tc.Dim.Render("  " + strings.Repeat("─", 50)))
+	b.WriteString(theme.Dim().Render("  " + strings.Repeat("─", 50)))
 	b.WriteString("\n")
 	b.WriteString(fmt.Sprintf("  %s %s",
-		tc.Dim.Render("Status:"),
-		tc.Green.Render(fmt.Sprintf("✓ %d ok", okTotal))))
+		theme.Dim().Render("Status:"),
+		theme.Success().Render(fmt.Sprintf("✓ %d ok", okTotal))))
 	if errTotal > 0 {
-		b.WriteString(fmt.Sprintf("  %s", tc.Red.Render(fmt.Sprintf("✗ %d error", errTotal))))
+		b.WriteString(fmt.Sprintf("  %s", theme.Danger().Render(fmt.Sprintf("✗ %d error", errTotal))))
 	}
 	if partialTotal > 0 {
-		b.WriteString(fmt.Sprintf("  %s", tc.Yellow.Render(fmt.Sprintf("◐ %d partial", partialTotal))))
+		b.WriteString(fmt.Sprintf("  %s", theme.Warning().Render(fmt.Sprintf("◐ %d partial", partialTotal))))
 	}
 	if blockedTotal > 0 {
-		b.WriteString(fmt.Sprintf("  %s", tc.Red.Render(fmt.Sprintf("⊘ %d blocked", blockedTotal))))
+		b.WriteString(fmt.Sprintf("  %s", theme.Danger().Render(fmt.Sprintf("⊘ %d blocked", blockedTotal))))
 	}
 	b.WriteString("\n")
 
@@ -950,9 +942,9 @@ func (m logTUIModel) renderStatsPanel() string {
 		if err == nil {
 			ago := formatRelativeTime(time.Since(ts))
 			b.WriteString(fmt.Sprintf("  %s %s %s\n",
-				tc.Dim.Render("Last op:"),
-				tc.Cyan.Render(m.stats.LastOperation.Command),
-				tc.Dim.Render(fmt.Sprintf("(%s ago)", ago))))
+				theme.Dim().Render("Last op:"),
+				theme.Accent().Render(m.stats.LastOperation.Command),
+				theme.Dim().Render(fmt.Sprintf("(%s ago)", ago))))
 		}
 	}
 
@@ -963,11 +955,11 @@ func (m logTUIModel) renderStatsPanel() string {
 func statsSuccessRateColor(rate float64) lipgloss.Style {
 	switch {
 	case rate >= 0.9:
-		return tc.Green.Bold(true)
+		return theme.Success().Bold(true)
 	case rate >= 0.7:
-		return tc.Yellow.Bold(true)
+		return theme.Warning().Bold(true)
 	default:
-		return tc.Red.Bold(true)
+		return theme.Danger().Bold(true)
 	}
 }
 

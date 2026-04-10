@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"skillshare/internal/audit"
+	"skillshare/internal/theme"
 
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -46,9 +47,9 @@ func (i arHeaderItem) Title() string {
 	countStr := fmt.Sprintf("%d", i.group.Total)
 	extra := ""
 	if i.group.Disabled > 0 {
-		extra = tc.Yellow.Render(fmt.Sprintf(" %d off", i.group.Disabled))
+		extra = theme.Warning().Render(fmt.Sprintf(" %d off", i.group.Disabled))
 	}
-	return fmt.Sprintf("%s %s  %s%s", arrow, i.group.Pattern, tc.Dim.Render(countStr), extra)
+	return fmt.Sprintf("%s %s  %s%s", arrow, i.group.Pattern, theme.Dim().Render(countStr), extra)
 }
 
 func (i arHeaderItem) Description() string { return "" }
@@ -64,9 +65,9 @@ type arRuleItem struct {
 }
 
 func (i arRuleItem) Title() string {
-	dot := tcSevStyle(i.rule.Severity).Render("●")
+	dot := theme.SeverityStyle(i.rule.Severity).Render("●")
 	if !i.rule.Enabled {
-		return fmt.Sprintf("  %s %s  %s", dot, i.rule.ID, tc.Red.Render("off"))
+		return fmt.Sprintf("  %s %s  %s", dot, i.rule.ID, theme.Danger().Render("off"))
 	}
 	return fmt.Sprintf("  %s %s", dot, i.rule.ID)
 }
@@ -158,13 +159,13 @@ func newARModel(rules []audit.CompiledRule, mode runMode) arModel {
 	// Filter text input
 	fi := textinput.New()
 	fi.Prompt = "/ "
-	fi.PromptStyle = tc.Filter
-	fi.Cursor.Style = tc.Filter
+	fi.PromptStyle = theme.Accent()
+	fi.Cursor.Style = theme.Accent()
 	m.filterInput = fi
 
 	// Create the list model once — rebuildItems will populate via SetItems.
 	m.list = list.New(nil, newPrefixDelegate(false), 0, 0)
-	m.list.Styles.Title = tc.ListTitle
+	m.list.Styles.Title = theme.Title()
 	m.list.SetShowStatusBar(false)
 	m.list.SetFilteringEnabled(false)
 	m.list.SetShowHelp(false)
@@ -418,7 +419,7 @@ func (m arModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "R":
 			m.pendingReset = true
-			m.flashMsg = tc.Yellow.Render("Press R again to reset all rules to defaults")
+			m.flashMsg = theme.Warning().Render("Press R again to reset all rules to defaults")
 			m.flashTicks = 5
 			return m, nil
 		case "ctrl+d":
@@ -472,11 +473,11 @@ func (m *arModel) toggleSelected() {
 // execMutation runs a mutation function, shows flash feedback, and reloads rules.
 func (m *arModel) execMutation(fn func() error, successMsg string) {
 	if err := fn(); err != nil {
-		m.flashMsg = tc.Red.Render("✗ " + err.Error())
+		m.flashMsg = theme.Danger().Render("✗ " + err.Error())
 		m.flashTicks = 3
 		return
 	}
-	m.flashMsg = tc.Green.Render("✓ " + successMsg)
+	m.flashMsg = theme.Success().Render("✓ " + successMsg)
 	m.flashTicks = 3
 	m.reloadRules()
 	m.rebuildItems()
@@ -611,7 +612,7 @@ func (m arModel) renderSevTabBar() string {
 	var parts []string
 
 	activeStyle := lipgloss.NewStyle().Bold(true).Underline(true)
-	inactiveStyle := tc.Dim
+	inactiveStyle := theme.Dim()
 
 	for i, tab := range sevTabs {
 		label := fmt.Sprintf("%s(%d)", tab.label, counts[i])
@@ -619,19 +620,19 @@ func (m arModel) renderSevTabBar() string {
 			// Color active tab by its severity
 			switch tab.sev {
 			case "CRITICAL":
-				parts = append(parts, activeStyle.Inherit(tc.Critical).Render(label))
+				parts = append(parts, activeStyle.Inherit(theme.Severity("critical")).Render(label))
 			case "HIGH":
-				parts = append(parts, activeStyle.Inherit(tc.High).Render(label))
+				parts = append(parts, activeStyle.Inherit(theme.Severity("high")).Render(label))
 			case "MEDIUM":
-				parts = append(parts, activeStyle.Inherit(tc.Medium).Render(label))
+				parts = append(parts, activeStyle.Inherit(theme.Severity("medium")).Render(label))
 			case "LOW":
-				parts = append(parts, activeStyle.Inherit(tc.Low).Render(label))
+				parts = append(parts, activeStyle.Inherit(theme.Severity("low")).Render(label))
 			case "INFO":
-				parts = append(parts, activeStyle.Inherit(tc.Info).Render(label))
+				parts = append(parts, activeStyle.Inherit(theme.Severity("info")).Render(label))
 			case "DISABLED":
-				parts = append(parts, activeStyle.Inherit(tc.Red).Render(label))
+				parts = append(parts, activeStyle.Inherit(theme.Danger()).Render(label))
 			default:
-				parts = append(parts, activeStyle.Inherit(tc.Cyan).Render(label))
+				parts = append(parts, activeStyle.Inherit(theme.Accent()).Render(label))
 			}
 		} else {
 			parts = append(parts, inactiveStyle.Render(label))
@@ -706,29 +707,29 @@ func (m arModel) renderPatternDetail(item arHeaderItem) string {
 	pg := item.group
 
 	row := func(label, value string) {
-		b.WriteString(tc.Label.Render(label))
+		b.WriteString(theme.Dim().Width(14).Render(label))
 		b.WriteString(value)
 		b.WriteString("\n")
 	}
 
 	// Header
-	b.WriteString(tc.Title.Render(pg.Pattern))
+	b.WriteString(theme.Title().Render(pg.Pattern))
 	b.WriteString("\n")
-	b.WriteString(tc.Dim.Render(strings.Repeat("─", 36)))
+	b.WriteString(theme.Dim().Render(strings.Repeat("─", 36)))
 	b.WriteString("\n\n")
 
 	row("Rules:", fmt.Sprintf("%d total", pg.Total))
-	row("Max Sev:", tcSevStyle(pg.MaxSeverity).Render(pg.MaxSeverity))
-	row("Enabled:", tc.Green.Render(fmt.Sprintf("%d", pg.Enabled)))
+	row("Max Sev:", theme.SeverityStyle(pg.MaxSeverity).Render(pg.MaxSeverity))
+	row("Enabled:", theme.Success().Render(fmt.Sprintf("%d", pg.Enabled)))
 	if pg.Disabled > 0 {
-		row("Disabled:", tc.Red.Render(fmt.Sprintf("%d", pg.Disabled)))
+		row("Disabled:", theme.Danger().Render(fmt.Sprintf("%d", pg.Disabled)))
 	} else {
-		row("Disabled:", tc.Dim.Render("0"))
+		row("Disabled:", theme.Dim().Render("0"))
 	}
 
 	// Severity distribution
 	b.WriteString("\n")
-	b.WriteString(tc.Label.Render("Severity:"))
+	b.WriteString(theme.Dim().Width(14).Render("Severity:"))
 	b.WriteString("\n")
 	sevCounts := make(map[string]int)
 	for _, r := range m.allRules {
@@ -739,7 +740,7 @@ func (m arModel) renderPatternDetail(item arHeaderItem) string {
 	for _, sev := range []string{"CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"} {
 		if count, ok := sevCounts[sev]; ok && count > 0 {
 			b.WriteString("  ")
-			b.WriteString(tcSevStyle(sev).Render(fmt.Sprintf("%-10s %d", sev, count)))
+			b.WriteString(theme.SeverityStyle(sev).Render(fmt.Sprintf("%-10s %d", sev, count)))
 			b.WriteString("\n")
 		}
 	}
@@ -752,7 +753,7 @@ func (m arModel) renderRuleDetail(item arRuleItem) string {
 	var b strings.Builder
 
 	row := func(label, value string) {
-		b.WriteString(tc.Label.Render(label))
+		b.WriteString(theme.Dim().Width(14).Render(label))
 		b.WriteString(value)
 		b.WriteString("\n")
 	}
@@ -760,14 +761,14 @@ func (m arModel) renderRuleDetail(item arRuleItem) string {
 	r := item.rule
 
 	// Header
-	b.WriteString(tc.Title.Render(item.rule.ID))
+	b.WriteString(theme.Title().Render(item.rule.ID))
 	b.WriteString("\n")
-	b.WriteString(tc.Dim.Render(strings.Repeat("─", 36)))
+	b.WriteString(theme.Dim().Render(strings.Repeat("─", 36)))
 	b.WriteString("\n\n")
 
 	row("ID:", r.ID)
-	row("Pattern:", tc.Emphasis.Render(r.Pattern))
-	row("Severity:", tcSevStyle(r.Severity).Render(r.Severity))
+	row("Pattern:", theme.Primary().Render(r.Pattern))
+	row("Severity:", theme.SeverityStyle(r.Severity).Render(r.Severity))
 	row("Message:", r.Message)
 	row("Regex:", r.Regex)
 
@@ -775,9 +776,9 @@ func (m arModel) renderRuleDetail(item arRuleItem) string {
 		row("Exclude:", r.Exclude)
 	}
 
-	statusStr := tc.Green.Render("enabled")
+	statusStr := theme.Success().Render("enabled")
 	if !r.Enabled {
-		statusStr = tc.Red.Render("disabled")
+		statusStr = theme.Danger().Render("disabled")
 	}
 	sourceLabel := r.Source
 	switch r.Source {
@@ -788,7 +789,7 @@ func (m arModel) renderRuleDetail(item arRuleItem) string {
 	case "builtin":
 		sourceLabel = "built-in"
 	}
-	row("Status:", statusStr+" "+tc.Dim.Render("("+sourceLabel+")"))
+	row("Status:", statusStr+" "+theme.Dim().Render("("+sourceLabel+")"))
 
 	return b.String()
 }
@@ -820,7 +821,7 @@ func (m arModel) renderFlashAndHelp(scrollInfo string) string {
 		if m.useSplit() {
 			help += "  Ctrl+d/u scroll"
 		}
-		b.WriteString(tc.Help.Render(appendScrollInfo(help, scrollInfo)))
+		b.WriteString(theme.Dim().MarginLeft(2).Render(appendScrollInfo(help, scrollInfo)))
 	}
 	b.WriteString("\n")
 
@@ -831,10 +832,10 @@ func (m arModel) renderFlashAndHelp(scrollInfo string) string {
 func (m arModel) renderSeverityPicker() string {
 	var parts []string
 	for _, opt := range severityOptions {
-		badge := tcSevStyle(opt.sev).Render(opt.key + " " + opt.sev)
+		badge := theme.SeverityStyle(opt.sev).Render(opt.key + " " + opt.sev)
 		parts = append(parts, badge)
 	}
-	return tc.Help.Render("Set severity: ") + strings.Join(parts, tc.Dim.Render("  ")) + tc.Help.Render("  Esc cancel")
+	return theme.Dim().MarginLeft(2).Render("Set severity: ") + strings.Join(parts, theme.Dim().Render("  ")) + theme.Dim().MarginLeft(2).Render("  Esc cancel")
 }
 
 // runAuditRulesTUI starts the bubbletea TUI for browsing/toggling audit rules.

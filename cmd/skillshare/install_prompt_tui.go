@@ -6,11 +6,12 @@ import (
 	"sort"
 	"strings"
 
+	"skillshare/internal/install"
+	"skillshare/internal/theme"
+
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-
-	"skillshare/internal/install"
 )
 
 // dirPickerItemKind distinguishes directory entries from the "Install all" action.
@@ -86,7 +87,7 @@ func newDirPickerModel(skills []install.SkillInfo) dirPickerModel {
 
 	l := list.New(items, newPrefixDelegate(true), 0, 0)
 	l.Title = "Select directory"
-	l.Styles.Title = tc.ListTitle
+	l.Styles.Title = theme.Title()
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
 	l.SetShowHelp(false)
@@ -95,8 +96,8 @@ func newDirPickerModel(skills []install.SkillInfo) dirPickerModel {
 	// Filter text input
 	fi := textinput.New()
 	fi.Prompt = "/ "
-	fi.PromptStyle = tc.Filter
-	fi.Cursor.Style = tc.Filter
+	fi.PromptStyle = theme.Accent()
+	fi.Cursor.Style = theme.Accent()
 
 	m.list = l
 	m.allItems = items
@@ -306,7 +307,7 @@ func (m dirPickerModel) View() string {
 	} else {
 		help = "↑↓ navigate  enter select  / filter  q quit"
 	}
-	b.WriteString(tc.Help.Render(help))
+	b.WriteString(theme.Dim().MarginLeft(2).Render(help))
 	b.WriteString("\n")
 
 	return b.String()
@@ -410,7 +411,7 @@ func newSkillSelectModel(skills []install.SkillInfo) skillSelectModel {
 
 	l := list.New(items, newPrefixDelegate(false), 0, 0)
 	l.Title = skillSelectTitle(0, len(sorted))
-	l.Styles.Title = tc.ListTitle
+	l.Styles.Title = theme.Title()
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
 	l.SetShowHelp(false)
@@ -419,8 +420,8 @@ func newSkillSelectModel(skills []install.SkillInfo) skillSelectModel {
 	// Filter text input
 	fi := textinput.New()
 	fi.Prompt = "/ "
-	fi.PromptStyle = tc.Filter
-	fi.Cursor.Style = tc.Filter
+	fi.PromptStyle = theme.Accent()
+	fi.Cursor.Style = theme.Accent()
 
 	return skillSelectModel{
 		list:        l,
@@ -608,7 +609,7 @@ func (m skillSelectModel) View() string {
 	))
 
 	help := "↑↓ navigate  space toggle  a all  enter confirm  / filter  esc cancel"
-	b.WriteString(tc.Help.Render(help))
+	b.WriteString(theme.Dim().MarginLeft(2).Render(help))
 	b.WriteString("\n")
 
 	return b.String()

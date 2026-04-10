@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"skillshare/internal/theme"
 )
 
 var errCancelled = errors.New("cancelled")
@@ -125,7 +127,7 @@ func runNewWizard() (selectedPattern, selectedCategory string, createDirs bool) 
 // wizardHeader builds a compact breadcrumb string for the help bar footer.
 // e.g. "✓ reviewer → quality"
 func wizardHeader(pattern, category string) string {
-	check := tc.Green.Render("✓")
+	check := theme.Success().Render("✓")
 	var parts []string
 	if pattern != "" {
 		parts = append(parts, check+" "+pattern)

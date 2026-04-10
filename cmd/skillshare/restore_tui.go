@@ -12,10 +12,12 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
 	"skillshare/internal/oplog"
+	"skillshare/internal/theme"
 	"skillshare/internal/utils"
 )
 
@@ -65,7 +67,7 @@ type restoreTargetItem struct {
 func (i restoreTargetItem) Title() string {
 	name := i.summary.TargetName
 	if isAgentBackupEntry(name) {
-		return tc.Cyan.Render("[A]") + " " + agentBaseTarget(name)
+		return theme.Accent().Render("[A]") + " " + agentBaseTarget(name)
 	}
 	return name
 }
@@ -166,7 +168,7 @@ func newRestoreTUIModel(summaries []backup.TargetBackupSummary, backupDir string
 
 	tl := list.New(listItems, newPrefixDelegate(true), 0, 0)
 	tl.Title = fmt.Sprintf("Backup Restore — %d target(s)", len(summaries))
-	tl.Styles.Title = tc.ListTitle
+	tl.Styles.Title = theme.Title()
 	tl.SetShowStatusBar(false)
 	tl.SetFilteringEnabled(false)
 	tl.SetShowHelp(false)
@@ -174,12 +176,12 @@ func newRestoreTUIModel(summaries []backup.TargetBackupSummary, backupDir string
 
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
-	sp.Style = tc.SpinnerStyle
+	sp.Style = theme.Accent()
 
 	fi := textinput.New()
 	fi.Prompt = "/ "
-	fi.PromptStyle = tc.Filter
-	fi.Cursor.Style = tc.Filter
+	fi.PromptStyle = theme.Accent()
+	fi.Cursor.Style = theme.Accent()
 
 	return restoreTUIModel{
 		phase:            phaseTargetList,
@@ -221,7 +223,7 @@ func (m restoreTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case restoreDoneMsg:
 		if msg.action == "delete" {
 			if msg.err != nil {
-				m.resultMsg = tc.Red.Render(fmt.Sprintf("Delete failed: %s", msg.err))
+				m.resultMsg = theme.Danger().Render(fmt.Sprintf("Delete failed: %s", msg.err))
 				m.phase = phaseDone
 				return m, nil
 			}
@@ -230,16 +232,16 @@ func (m restoreTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.selectedVersion != nil {
 				label = m.selectedVersion.Label
 			}
-			m.resultMsg = tc.Green.Render(fmt.Sprintf("Deleted backup %s", label))
+			m.resultMsg = theme.Success().Render(fmt.Sprintf("Deleted backup %s", label))
 			m.confirmAction = ""
 			m.selectedVersion = nil
 			return m.enterVersionPhase()
 		}
 		m.phase = phaseDone
 		if msg.err != nil {
-			m.resultMsg = tc.Red.Render(fmt.Sprintf("Error: %s", msg.err))
+			m.resultMsg = theme.Danger().Render(fmt.Sprintf("Error: %s", msg.err))
 		} else {
-			m.resultMsg = tc.Green.Render(fmt.Sprintf("Restored %s from %s", m.selectedTarget, m.selectedVersion.Label))
+			m.resultMsg = theme.Success().Render(fmt.Sprintf("Restored %s from %s", m.selectedTarget, m.selectedVersion.Label))
 		}
 		return m, nil
 
@@ -457,7 +459,7 @@ func (m restoreTUIModel) enterVersionPhase() (tea.Model, tea.Cmd) {
 	lw := restoreListWidth(m.termWidth)
 	vl := list.New(listItems, newPrefixDelegate(true), 0, 0)
 	vl.Title = fmt.Sprintf("%s — select version", m.selectedTarget)
-	vl.Styles.Title = tc.ListTitle
+	vl.Styles.Title = theme.Title()
 	vl.SetShowStatusBar(false)
 	vl.SetFilteringEnabled(false)
 	vl.SetShowHelp(false)
@@ -656,7 +658,7 @@ func (m restoreTUIModel) View() string {
 
 	case phaseDone:
 		return fmt.Sprintf("\n  %s\n\n  %s\n",
-			m.resultMsg, tc.Help.Render("Press any key to exit"))
+			m.resultMsg, theme.Dim().MarginLeft(2).Render("Press any key to exit"))
 
 	case phaseConfirm:
 		return m.viewRestoreConfirm()
@@ -704,7 +706,7 @@ func (m restoreTUIModel) viewHorizontal() string {
 	b.WriteString(m.renderRestoreFilterBar())
 
 	// Help
-	b.WriteString(tc.Help.Render(appendScrollInfo(m.restoreHelpText(), scrollInfo)))
+	b.WriteString(theme.Dim().MarginLeft(2).Render(appendScrollInfo(m.restoreHelpText(), scrollInfo)))
 	b.WriteString("\n")
 
 	return b.String()
@@ -739,7 +741,7 @@ func (m restoreTUIModel) viewVertical() string {
 	b.WriteString(detailStr)
 	b.WriteString("\n")
 
-	b.WriteString(tc.Help.Render(appendScrollInfo(m.restoreHelpText(), scrollInfo)))
+	b.WriteString(theme.Dim().MarginLeft(2).Render(appendScrollInfo(m.restoreHelpText(), scrollInfo)))
 	b.WriteString("\n")
 
 	return b.String()
@@ -798,7 +800,7 @@ func (m restoreTUIModel) viewRestoreConfirm() string {
 
 	if m.confirmAction == "delete" {
 		fmt.Fprintf(&b, "  %s\n\n",
-			tc.Red.Render(fmt.Sprintf("Delete backup %s for %s?", m.selectedVersion.Label, m.selectedTarget)))
+			theme.Danger().Render(fmt.Sprintf("Delete backup %s for %s?", m.selectedVersion.Label, m.selectedTarget)))
 	} else {
 		fmt.Fprintf(&b, "  Restore %s from backup %s?\n\n", m.selectedTarget, m.selectedVersion.Label)
 	}
@@ -828,7 +830,7 @@ func (m restoreTUIModel) viewRestoreConfirm() string {
 	}
 
 	b.WriteString("\n  ")
-	b.WriteString(tc.Help.Render("y confirm  n cancel"))
+	b.WriteString(theme.Dim().MarginLeft(2).Render("y confirm  n cancel"))
 	b.WriteString("\n")
 	return b.String()
 }
@@ -868,8 +870,8 @@ func (m restoreTUIModel) renderTargetDetail(s backup.TargetBackupSummary) string
 	var b strings.Builder
 
 	row := func(label, value string) {
-		b.WriteString(tc.Label.Render(label))
-		b.WriteString(tc.Value.Render(value))
+		b.WriteString(theme.Dim().Width(14).Render(label))
+		b.WriteString(lipgloss.NewStyle().Render(value))
 		b.WriteString("\n")
 	}
 
@@ -909,7 +911,7 @@ func (m restoreTUIModel) renderTargetDetail(s backup.TargetBackupSummary) string
 
 		if len(skillNames) > 0 {
 			b.WriteString("\n")
-			b.WriteString(tc.Separator.Render("── Latest backup skills ──────────────"))
+			b.WriteString(theme.Dim().Render("── Latest backup skills ──────────────"))
 			b.WriteString("\n")
 			const maxPreview = 20
 			show := skillNames
@@ -919,17 +921,17 @@ func (m restoreTUIModel) renderTargetDetail(s backup.TargetBackupSummary) string
 			for _, name := range show {
 				desc := readSkillDescription(filepath.Join(latestDir, name))
 				if desc != "" {
-					b.WriteString(tc.Value.Render("  " + name))
+					b.WriteString(lipgloss.NewStyle().Render("  " + name))
 					b.WriteString("\n")
-					b.WriteString(tc.Dim.Render("    " + truncateStr(desc, 60)))
+					b.WriteString(theme.Dim().Render("    " + truncateStr(desc, 60)))
 					b.WriteString("\n")
 				} else {
-					b.WriteString(tc.Value.Render("  " + name))
+					b.WriteString(lipgloss.NewStyle().Render("  " + name))
 					b.WriteString("\n")
 				}
 			}
 			if len(skillNames) > maxPreview {
-				b.WriteString(tc.Dim.Render(fmt.Sprintf("  ... and %d more", len(skillNames)-maxPreview)))
+				b.WriteString(theme.Dim().Render(fmt.Sprintf("  ... and %d more", len(skillNames)-maxPreview)))
 				b.WriteString("\n")
 			}
 		}
@@ -942,8 +944,8 @@ func (m restoreTUIModel) renderVersionDetail(v backup.BackupVersion) string {
 	var b strings.Builder
 
 	row := func(label, value string) {
-		b.WriteString(tc.Label.Render(label))
-		b.WriteString(tc.Value.Render(value))
+		b.WriteString(theme.Dim().Width(14).Render(label))
+		b.WriteString(lipgloss.NewStyle().Render(value))
 		b.WriteString("\n")
 	}
 
@@ -965,32 +967,32 @@ func (m restoreTUIModel) renderVersionDetail(v backup.BackupVersion) string {
 		added, removed, common := diffSkillSets(v.SkillNames, listDirNames(diffPath))
 		if len(added) > 0 || len(removed) > 0 {
 			b.WriteString("\n")
-			b.WriteString(tc.Separator.Render("── Diff vs current target ────────────"))
+			b.WriteString(theme.Dim().Render("── Diff vs current target ────────────"))
 			b.WriteString("\n")
 			if len(common) > 0 {
 				row("Same:    ", fmt.Sprintf("%d skill(s)", len(common)))
 			}
 			if len(added) > 0 {
-				b.WriteString(tc.Label.Render("Restore: "))
-				b.WriteString(tc.Green.Render(fmt.Sprintf("+%d (in backup, not in target)", len(added))))
+				b.WriteString(theme.Dim().Width(14).Render("Restore: "))
+				b.WriteString(theme.Success().Render(fmt.Sprintf("+%d (in backup, not in target)", len(added))))
 				b.WriteString("\n")
 				for _, name := range added {
-					b.WriteString(tc.Green.Render("  + " + name))
+					b.WriteString(theme.Success().Render("  + " + name))
 					b.WriteString("\n")
 				}
 			}
 			if len(removed) > 0 {
-				b.WriteString(tc.Label.Render("Remove:  "))
-				b.WriteString(tc.Red.Render(fmt.Sprintf("-%d (in target, not in backup)", len(removed))))
+				b.WriteString(theme.Dim().Width(14).Render("Remove:  "))
+				b.WriteString(theme.Danger().Render(fmt.Sprintf("-%d (in target, not in backup)", len(removed))))
 				b.WriteString("\n")
 				for _, name := range removed {
-					b.WriteString(tc.Red.Render("  - " + name))
+					b.WriteString(theme.Danger().Render("  - " + name))
 					b.WriteString("\n")
 				}
 			}
 		} else if len(common) > 0 {
 			b.WriteString("\n")
-			b.WriteString(tc.Dim.Render("  Backup matches current target"))
+			b.WriteString(theme.Dim().Render("  Backup matches current target"))
 			b.WriteString("\n")
 		}
 	}
@@ -998,30 +1000,30 @@ func (m restoreTUIModel) renderVersionDetail(v backup.BackupVersion) string {
 	// Skill list with descriptions (cap I/O at 20 skills)
 	if len(v.SkillNames) > 0 {
 		b.WriteString("\n")
-		b.WriteString(tc.Separator.Render("── Contents ──────────────────────────"))
+		b.WriteString(theme.Dim().Render("── Contents ──────────────────────────"))
 		b.WriteString("\n")
 		const maxDetail = 20
 		for i, name := range v.SkillNames {
 			if i < maxDetail {
 				desc := readSkillDescription(filepath.Join(v.Dir, name))
 				files := listSkillFiles(filepath.Join(v.Dir, name))
-				b.WriteString(tc.Value.Render("  " + name))
+				b.WriteString(lipgloss.NewStyle().Render("  " + name))
 				b.WriteString("\n")
 				if desc != "" {
-					b.WriteString(tc.Dim.Render("    " + truncateStr(desc, 60)))
+					b.WriteString(theme.Dim().Render("    " + truncateStr(desc, 60)))
 					b.WriteString("\n")
 				}
 				if len(files) > 0 {
-					b.WriteString(tc.Dim.Render("    " + strings.Join(files, "  ")))
+					b.WriteString(theme.Dim().Render("    " + strings.Join(files, "  ")))
 					b.WriteString("\n")
 				}
 			} else {
-				b.WriteString(tc.Dim.Render("  " + name))
+				b.WriteString(theme.Dim().Render("  " + name))
 				b.WriteString("\n")
 			}
 		}
 		if len(v.SkillNames) > maxDetail {
-			b.WriteString(tc.Dim.Render(fmt.Sprintf("  ... %d skill(s) above shown without details", len(v.SkillNames)-maxDetail)))
+			b.WriteString(theme.Dim().Render(fmt.Sprintf("  ... %d skill(s) above shown without details", len(v.SkillNames)-maxDetail)))
 			b.WriteString("\n")
 		}
 	}
@@ -1045,13 +1047,13 @@ func describeTargetState(path string) string {
 	info, err := os.Lstat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return tc.Yellow.Render("not found")
+			return theme.Warning().Render("not found")
 		}
-		return tc.Red.Render("error")
+		return theme.Danger().Render("error")
 	}
 	if info.Mode()&os.ModeSymlink != 0 {
 		dest, _ := os.Readlink(path)
-		return tc.Cyan.Render("symlink → " + dest)
+		return theme.Accent().Render("symlink → " + dest)
 	}
 	entries, _ := os.ReadDir(path)
 	return fmt.Sprintf("directory (%d items)", len(entries))

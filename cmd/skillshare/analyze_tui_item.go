@@ -5,6 +5,8 @@ import (
 	"sort"
 	"strings"
 
+	"skillshare/internal/theme"
+
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -69,8 +71,8 @@ var analyzeDots = map[string]string{
 
 // Pre-computed lint icons (same pattern as analyzeDots).
 var (
-	lintIconError   = tc.Red.Render("✗") + " "
-	lintIconWarning = tc.Yellow.Render("⚠") + " "
+	lintIconError   = theme.Danger().Render("✗") + " "
+	lintIconWarning = theme.Warning().Render("⚠") + " "
 )
 
 func lintIcon(issues []ssync.LintIssue) string {
@@ -138,7 +140,7 @@ func (d analyzeSkillDelegate) Render(w io.Writer, m list.Model, index int, listI
 	if gap < 1 {
 		gap = 1
 	}
-	line := dot + " " + nameLabel + strings.Repeat(" ", gap) + tc.Dim.Render(tokenStr)
+	line := dot + " " + nameLabel + strings.Repeat(" ", gap) + theme.Dim().Render(tokenStr)
 
 	// Reuse the shared ▌ prefix row style (same as list, audit, log TUIs)
 	renderPrefixRow(w, line, width, isSelected)

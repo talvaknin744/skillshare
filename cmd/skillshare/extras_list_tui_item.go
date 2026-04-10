@@ -3,6 +3,8 @@ package main
 import (
 	"io"
 
+	"skillshare/internal/theme"
+
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -41,10 +43,10 @@ func (extrasListDelegate) Render(w io.Writer, m list.Model, index int, item list
 // extrasStatusBadge returns a short colored status indicator based on aggregate target status.
 func extrasStatusBadge(e extrasListEntry) string {
 	if !e.SourceExists {
-		return tc.Dim.Render("no source")
+		return theme.Dim().Render("no source")
 	}
 	if len(e.Targets) == 0 {
-		return tc.Dim.Render("no targets")
+		return theme.Dim().Render("no targets")
 	}
 
 	synced := 0
@@ -60,10 +62,10 @@ func extrasStatusBadge(e extrasListEntry) string {
 
 	total := len(e.Targets)
 	if synced == total {
-		return tc.Green.Render("✓")
+		return theme.Success().Render("✓")
 	}
 	if drift > 0 {
-		return tc.Yellow.Render("△")
+		return theme.Warning().Render("△")
 	}
-	return tc.Red.Render("✗")
+	return theme.Danger().Render("✗")
 }

@@ -8,6 +8,7 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/sync"
+	"skillshare/internal/theme"
 	"skillshare/internal/ui"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -107,7 +108,7 @@ func newExtrasListTUIModel(
 
 	l := list.New(nil, delegate, 0, 0)
 	l.Title = fmt.Sprintf("Extras (%s)", modeLabel)
-	l.Styles.Title = tc.ListTitle
+	l.Styles.Title = theme.Title()
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
 	l.SetShowHelp(false)
@@ -115,12 +116,12 @@ func newExtrasListTUIModel(
 
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
-	sp.Style = tc.SpinnerStyle
+	sp.Style = theme.Accent()
 
 	fi := textinput.New()
 	fi.Prompt = "/ "
-	fi.PromptStyle = tc.Filter
-	fi.Cursor.Style = tc.Filter
+	fi.PromptStyle = theme.Accent()
+	fi.Cursor.Style = theme.Accent()
 	fi.Placeholder = "filter by name"
 
 	return extrasListTUIModel{
@@ -425,29 +426,29 @@ func (m extrasListTUIModel) viewExtrasVertical() string {
 func (m extrasListTUIModel) renderExtrasDetail(e extrasListEntry) string {
 	var b strings.Builder
 
-	b.WriteString(tc.Title.Render(e.Name))
+	b.WriteString(theme.Title().Render(e.Name))
 	b.WriteString("\n\n")
 
-	label := tc.Label.Render("Source")
+	label := theme.Dim().Width(14).Render("Source")
 	if e.SourceExists {
 		b.WriteString(label + shortenPath(e.SourceDir) + "\n")
 	} else {
-		b.WriteString(label + tc.Dim.Render("not found") + "\n")
+		b.WriteString(label + theme.Dim().Render("not found") + "\n")
 	}
 
-	label = tc.Label.Render("Files")
+	label = theme.Dim().Width(14).Render("Files")
 	if e.SourceExists {
 		b.WriteString(label + fmt.Sprintf("%d", e.FileCount) + "\n")
 	} else {
-		b.WriteString(label + tc.Dim.Render("—") + "\n")
+		b.WriteString(label + theme.Dim().Render("—") + "\n")
 	}
 
 	b.WriteString("\n")
-	b.WriteString(tc.Title.Render("Targets"))
+	b.WriteString(theme.Title().Render("Targets"))
 	b.WriteString("\n")
 
 	if len(e.Targets) == 0 {
-		b.WriteString(tc.Dim.Render("  No targets configured") + "\n")
+		b.WriteString(theme.Dim().Render("  No targets configured") + "\n")
 	} else {
 		hasDrift := false
 		for _, t := range e.Targets {
@@ -456,18 +457,18 @@ func (m extrasListTUIModel) renderExtrasDetail(e extrasListEntry) string {
 			switch t.Status {
 			case "synced":
 				icon = "✓"
-				style = tc.Green
+				style = theme.Success()
 			case "drift":
 				icon = "△"
-				style = tc.Yellow
+				style = theme.Warning()
 				hasDrift = true
 			case "not synced":
 				icon = "✗"
-				style = tc.Red
+				style = theme.Danger()
 				hasDrift = true
 			default:
 				icon = "-"
-				style = tc.Dim
+				style = theme.Dim()
 			}
 			statusText := ""
 			if t.Status != "synced" {
@@ -478,29 +479,29 @@ func (m extrasListTUIModel) renderExtrasDetail(e extrasListEntry) string {
 				modeLabel += ", flatten"
 			}
 			fmt.Fprintf(&b, "  %s %s (%s)%s\n",
-				style.Render(icon), shortenPath(t.Path), modeLabel, tc.Dim.Render(statusText))
+				style.Render(icon), shortenPath(t.Path), modeLabel, theme.Dim().Render(statusText))
 		}
 		if hasDrift {
-			b.WriteString("\n" + tc.Yellow.Render("hint:") + " press S to sync, or use --force to overwrite conflicts\n")
+			b.WriteString("\n" + theme.Warning().Render("hint:") + " press S to sync, or use --force to overwrite conflicts\n")
 		}
 	}
 
 	if e.SourceExists && e.FileCount > 0 {
 		b.WriteString("\n")
-		b.WriteString(tc.Title.Render("Files"))
+		b.WriteString(theme.Title().Render("Files"))
 		b.WriteString("\n")
 		files := discoverExtraFileNames(e.SourceDir)
 		maxShow := 10
 		for i, f := range files {
 			if i >= maxShow {
-				b.WriteString(tc.Dim.Render(fmt.Sprintf("  … and %d more", len(files)-maxShow)) + "\n")
+				b.WriteString(theme.Dim().Render(fmt.Sprintf("  … and %d more", len(files)-maxShow)) + "\n")
 				break
 			}
 			prefix := "├── "
 			if i == len(files)-1 || i == maxShow-1 {
 				prefix = "└── "
 			}
-			b.WriteString(tc.Dim.Render("  "+prefix) + f + "\n")
+			b.WriteString(theme.Dim().Render("  "+prefix) + f + "\n")
 		}
 	}
 
@@ -530,17 +531,17 @@ func (m extrasListTUIModel) renderExtrasHelp(scrollInfo string) string {
 	if m.filtering {
 		helpText = "Enter lock  Esc clear  q quit"
 	}
-	return tc.Help.Render(appendScrollInfo(helpText, scrollInfo))
+	return theme.Dim().MarginLeft(2).Render(appendScrollInfo(helpText, scrollInfo))
 }
 
 func renderExtrasActionMsg(msg string) string {
 	if strings.HasPrefix(msg, "✓") {
-		return tc.Green.Render(msg)
+		return theme.Success().Render(msg)
 	}
 	if strings.HasPrefix(msg, "✗") {
-		return tc.Red.Render(msg)
+		return theme.Danger().Render(msg)
 	}
-	return tc.Yellow.Render(msg)
+	return theme.Warning().Render(msg)
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────
@@ -661,7 +662,7 @@ func (m extrasListTUIModel) renderConfirmOverlay() string {
 	}
 
 	return fmt.Sprintf("\n%s\n\n%s\n\nProceed? [Y/n] ",
-		tc.Title.Render(title), body)
+		theme.Title().Render(title), body)
 }
 
 // ─── Target Sub-Menu ─────────────────────────────────────────────────
@@ -764,14 +765,14 @@ func (m extrasListTUIModel) renderTargetMenu() string {
 		title = "Toggle flatten"
 	}
 
-	fmt.Fprintf(&b, "\n%s\n\n", tc.Title.Render(title))
+	fmt.Fprintf(&b, "\n%s\n\n", theme.Title().Render(title))
 
 	if m.targetAction == "mode" || m.targetAction == "flatten" {
 		// No "All targets" for mode — list targets directly
 		for i, t := range m.targetMenuItems {
 			prefix := "  "
 			if i == m.targetCursor {
-				prefix = tc.Cyan.Render(">") + " "
+				prefix = theme.Accent().Render(">") + " "
 			}
 			fmt.Fprintf(&b, "%s%s  (%s)\n", prefix, shortenPath(t.Path), t.Mode)
 		}
@@ -779,7 +780,7 @@ func (m extrasListTUIModel) renderTargetMenu() string {
 		for i := 0; i <= len(m.targetMenuItems); i++ {
 			prefix := "  "
 			if i == m.targetCursor {
-				prefix = tc.Cyan.Render(">") + " "
+				prefix = theme.Accent().Render(">") + " "
 			}
 			if i == 0 {
 				fmt.Fprintf(&b, "%s%s\n", prefix, "All targets")
@@ -790,7 +791,7 @@ func (m extrasListTUIModel) renderTargetMenu() string {
 		}
 	}
 
-	fmt.Fprintf(&b, "\n%s\n", tc.Help.Render("↑↓ select  Enter confirm  Esc cancel"))
+	fmt.Fprintf(&b, "\n%s\n", theme.Dim().MarginLeft(2).Render("↑↓ select  Enter confirm  Esc cancel"))
 
 	return b.String()
 }
@@ -846,14 +847,14 @@ func (m extrasListTUIModel) handleModePickerKey(msg tea.KeyMsg) (tea.Model, tea.
 func (m extrasListTUIModel) renderModePicker() string {
 	var b strings.Builder
 
-	fmt.Fprintf(&b, "\n%s\n", tc.Title.Render("Change mode"))
-	fmt.Fprintf(&b, "%s  %s\n\n", tc.Dim.Render("Extra:"), m.modePickerExtra)
-	fmt.Fprintf(&b, "%s  %s\n\n", tc.Dim.Render("Target:"), shortenPath(m.modePickerTarget))
+	fmt.Fprintf(&b, "\n%s\n", theme.Title().Render("Change mode"))
+	fmt.Fprintf(&b, "%s  %s\n\n", theme.Dim().Render("Extra:"), m.modePickerExtra)
+	fmt.Fprintf(&b, "%s  %s\n\n", theme.Dim().Render("Target:"), shortenPath(m.modePickerTarget))
 
 	for i, mode := range extrasSyncModes {
 		cursor := "  "
 		if i == m.modeCursor {
-			cursor = tc.Cyan.Render(">") + " "
+			cursor = theme.Accent().Render(">") + " "
 		}
 		var desc string
 		switch mode {
@@ -865,13 +866,13 @@ func (m extrasListTUIModel) renderModePicker() string {
 			desc = " (directory symlink)"
 		}
 		if i == m.modeCursor {
-			fmt.Fprintf(&b, "%s%s%s\n", cursor, tc.Cyan.Render(mode), tc.Dim.Render(desc))
+			fmt.Fprintf(&b, "%s%s%s\n", cursor, theme.Accent().Render(mode), theme.Dim().Render(desc))
 		} else {
-			fmt.Fprintf(&b, "%s%s%s\n", cursor, mode, tc.Dim.Render(desc))
+			fmt.Fprintf(&b, "%s%s%s\n", cursor, mode, theme.Dim().Render(desc))
 		}
 	}
 
-	fmt.Fprintf(&b, "\n%s\n", tc.Help.Render("↑↓ select  Enter confirm  Esc cancel"))
+	fmt.Fprintf(&b, "\n%s\n", theme.Dim().MarginLeft(2).Render("↑↓ select  Enter confirm  Esc cancel"))
 	return b.String()
 }
 
@@ -1307,9 +1308,9 @@ func (m extrasListTUIModel) renderExtrasContentOverlay() string {
 	}
 
 	b.WriteString("\n")
-	b.WriteString(tc.Title.Render(fmt.Sprintf("  %s", extraName)))
+	b.WriteString(theme.Title().Render(fmt.Sprintf("  %s", extraName)))
 	if fileName != "" {
-		b.WriteString(tc.Dim.Render(fmt.Sprintf("  ─  %s", fileName)))
+		b.WriteString(theme.Dim().Render(fmt.Sprintf("  ─  %s", fileName)))
 	}
 	b.WriteString("\n\n")
 
@@ -1326,7 +1327,7 @@ func (m extrasListTUIModel) renderExtrasContentOverlay() string {
 		PaddingLeft(1).
 		Render(sidebarStr)
 
-	borderStyle := tc.Border.Height(contentHeight).MaxHeight(contentHeight)
+	borderStyle := theme.Dim().Height(contentHeight).MaxHeight(contentHeight)
 	borderCol := strings.Repeat("│\n", contentHeight)
 	borderPanel := borderStyle.Render(strings.TrimRight(borderCol, "\n"))
 
@@ -1344,7 +1345,7 @@ func (m extrasListTUIModel) renderExtrasContentOverlay() string {
 	if scrollInfo != "" {
 		help += "  " + scrollInfo
 	}
-	b.WriteString(tc.Help.Render(help))
+	b.WriteString(theme.Dim().MarginLeft(2).Render(help))
 	b.WriteString("\n")
 
 	return b.String()
@@ -1355,8 +1356,8 @@ func (m extrasListTUIModel) renderExtrasSidebarStr(width, height int) string {
 		return "(no files)"
 	}
 
-	selectedStyle := lipgloss.NewStyle().Bold(true).Foreground(tc.BrandYellow)
-	dirStyle := tc.Cyan
+	selectedStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#D4D93C"))
+	dirStyle := theme.Accent()
 	fileStyle := lipgloss.NewStyle()
 
 	total := len(m.treeNodes)
@@ -1401,7 +1402,7 @@ func (m extrasListTUIModel) renderExtrasSidebarStr(width, height int) string {
 	}
 
 	if total > height {
-		lines = append(lines, tc.Dim.Render(fmt.Sprintf(" (%d/%d)", m.treeCursor+1, total)))
+		lines = append(lines, theme.Dim().Render(fmt.Sprintf(" (%d/%d)", m.treeCursor+1, total)))
 	}
 
 	return strings.Join(lines, "\n")

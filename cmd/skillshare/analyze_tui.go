@@ -5,6 +5,8 @@ import (
 	"sort"
 	"strings"
 
+	"skillshare/internal/theme"
+
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -60,12 +62,12 @@ type analyzeDataLoadedMsg struct {
 func newAnalyzeTUIModel(loadFn func() analyzeLoadResult, modeLabel string, initialFilter string) analyzeTUIModel {
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
-	sp.Style = tc.SpinnerStyle
+	sp.Style = theme.Accent()
 
 	fi := textinput.New()
 	fi.Prompt = "/ "
-	fi.PromptStyle = tc.Filter
-	fi.Cursor.Style = tc.Filter
+	fi.PromptStyle = theme.Accent()
+	fi.Cursor.Style = theme.Accent()
 	fi.Placeholder = "filter skills"
 
 	return analyzeTUIModel{
@@ -268,7 +270,7 @@ func (m analyzeTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		delegate := analyzeSkillDelegate{}
 		l := list.New(nil, delegate, 0, 0)
 		l.Title = m.listTitle()
-		l.Styles.Title = tc.ListTitle
+		l.Styles.Title = theme.Title()
 		l.SetShowStatusBar(false)
 		l.SetFilteringEnabled(false)
 		l.SetShowHelp(false)
@@ -498,7 +500,7 @@ func (m analyzeTUIModel) renderFooter(scrollInfo string) string {
 	b.WriteString("\n")
 	help := m.helpText()
 	help = appendScrollInfo(help, scrollInfo)
-	b.WriteString(tc.Help.Render(help))
+	b.WriteString(theme.Dim().MarginLeft(2).Render(help))
 	b.WriteString("\n")
 	return b.String()
 }
@@ -524,12 +526,12 @@ func (m analyzeTUIModel) renderTargetBar() string {
 			label = fmt.Sprintf("%d targets (%d)", len(g.names), g.entry.SkillCount)
 		}
 		if i == m.groupIdx {
-			parts = append(parts, tc.Cyan.Render("► "+label))
+			parts = append(parts, theme.Accent().Render("► "+label))
 		} else {
-			parts = append(parts, tc.Dim.Render(label))
+			parts = append(parts, theme.Dim().Render(label))
 		}
 	}
-	return "  " + strings.Join(parts, tc.Dim.Render("  ·  ")) + "\n"
+	return "  " + strings.Join(parts, theme.Dim().Render("  ·  ")) + "\n"
 }
 
 func (m analyzeTUIModel) renderStatsLine() string {
@@ -546,17 +548,17 @@ func (m analyzeTUIModel) renderStatsLine() string {
 		countStr = fmt.Sprintf("%d skills", g.entry.SkillCount)
 	}
 
-	return tc.Help.Render(fmt.Sprintf("%s  Always: %s tokens  On-demand: %s tokens  Total: %s tokens  %s",
+	return theme.Dim().MarginLeft(2).Render(fmt.Sprintf("%s  Always: %s tokens  On-demand: %s tokens  Total: %s tokens  %s",
 		countStr,
 		formatTokensStr(m.filteredDescChars),
 		formatTokensStr(m.filteredBodyChars),
 		formatTokensStr(totalChars),
-		tc.Dim.Render("(1 token ≈ 4 chars)"),
+		theme.Dim().Render("(1 token ≈ 4 chars)"),
 	)) + "\n"
 }
 
 func (m analyzeTUIModel) renderDetailHeader(e analyzeSkillEntry, width int) string {
-	title := tc.ListTitle.Render(e.Name)
+	title := theme.Title().Render(e.Name)
 	return lipgloss.NewStyle().Width(width).Render(title)
 }
 
@@ -582,9 +584,9 @@ func (m analyzeTUIModel) renderDetailBody(e analyzeSkillEntry, width int) string
 		for _, issue := range e.LintIssues {
 			var icon string
 			if issue.Severity == ssync.LintError {
-				icon = tc.Red.Render("✗")
+				icon = theme.Danger().Render("✗")
 			} else {
-				icon = tc.Yellow.Render("⚠")
+				icon = theme.Warning().Render("⚠")
 			}
 			qualityRows = append(qualityRows, icon+" "+issue.Message)
 		}
@@ -595,10 +597,10 @@ func (m analyzeTUIModel) renderDetailBody(e analyzeSkillEntry, width int) string
 	// Metadata
 	var metaRows []string
 	if e.relPath != "" {
-		metaRows = append(metaRows, renderFactRow("Path", tc.Cyan.Render(e.relPath)))
+		metaRows = append(metaRows, renderFactRow("Path", theme.Accent().Render(e.relPath)))
 	}
 	if e.isTracked {
-		metaRows = append(metaRows, renderFactRow("Tracked", tc.Green.Render("✓")))
+		metaRows = append(metaRows, renderFactRow("Tracked", theme.Success().Render("✓")))
 	}
 	if len(e.targetNames) > 0 {
 		metaRows = append(metaRows, renderFactRow("Restricted to", strings.Join(e.targetNames, ", ")))
@@ -621,7 +623,7 @@ func (m analyzeTUIModel) renderDetailBody(e analyzeSkillEntry, width int) string
 			lines[len(lines)-1] += "..."
 		}
 		body := strings.Join(lines, "\n")
-		b.WriteString(renderDetailSection("Description", tc.Value.Render(body), width))
+		b.WriteString(renderDetailSection("Description", lipgloss.NewStyle().Render(body), width))
 	}
 
 	return b.String()
