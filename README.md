@@ -253,6 +253,7 @@ Thanks to everyone who helped shape skillshare.
 <a href="https://github.com/jessica-engel"><img src="https://github.com/jessica-engel.png" width="50" style="border-radius:50%" alt="jessica-engel"></a>
 <a href="https://github.com/AlimuratYusup"><img src="https://github.com/AlimuratYusup.png" width="50" style="border-radius:50%" alt="AlimuratYusup"></a>
 <a href="https://github.com/thor-shuang"><img src="https://github.com/thor-shuang.png" width="50" style="border-radius:50%" alt="thor-shuang"></a>
+<a href="https://github.com/bishopmatthew"><img src="https://github.com/bishopmatthew.png" width="50" style="border-radius:50%" alt="bishopmatthew"></a>
 
 ---
 
