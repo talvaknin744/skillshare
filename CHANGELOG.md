@@ -9,6 +9,11 @@
   skillshare target --json   # agentLocalCount field in each target
   ```
 
+- **Richer `target list --json` output** — each target entry now includes `targetNaming` (effective naming strategy, e.g. `flat`), `sync` (skill sync summary), and `agentSync` (agent sync summary), making JSON output more useful for scripted workflows and external tooling
+  ```bash
+  skillshare target list --json   # targetNaming, sync, agentSync per target
+  ```
+
 ### Bug Fixes
 
 - Fixed batch uninstall for agents — selecting multiple agents from the same tracked repo on the Uninstall page sent only the repo name instead of individual agent names, causing all uninstalls to fail with "agent not found". The confirmation dialog now correctly lists each agent and the API receives individual names

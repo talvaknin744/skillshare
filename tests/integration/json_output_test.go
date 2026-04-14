@@ -198,6 +198,54 @@ func TestTarget_List_JSON(t *testing.T) {
 	}
 }
 
+func TestTarget_List_Project_JSON_IncludesSyncMetadata(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	projectDir := sb.SetupProjectDir("claude")
+	sb.CreateProjectSkill(projectDir, "alpha", map[string]string{"SKILL.md": "# Alpha"})
+
+	sb.RunCLIInDir(projectDir, "sync", "-p").AssertSuccess(t)
+
+	result := sb.RunCLIInDir(projectDir, "target", "list", "-p", "--json")
+	result.AssertSuccess(t)
+
+	var output map[string]any
+	if err := json.Unmarshal([]byte(result.Stdout), &output); err != nil {
+		t.Fatalf("invalid JSON output: %v\nStdout: %s", err, result.Stdout)
+	}
+
+	targets, ok := output["targets"].([]any)
+	if !ok || len(targets) != 1 {
+		t.Fatalf("expected exactly 1 target, got %v", output["targets"])
+	}
+
+	target, ok := targets[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected target object, got %T", targets[0])
+	}
+
+	if target["path"] != filepath.Join(projectDir, ".claude", "skills") {
+		t.Fatalf("expected absolute target path, got %v", target["path"])
+	}
+	if target["targetNaming"] != "flat" {
+		t.Fatalf("expected targetNaming=flat, got %v", target["targetNaming"])
+	}
+
+	syncSummary, ok := target["sync"].(string)
+	if !ok || !strings.Contains(syncSummary, "merged") {
+		t.Fatalf("expected sync summary containing merged, got %v", target["sync"])
+	}
+
+	agentSync, ok := target["agentSync"].(string)
+	if !ok || agentSync == "" {
+		t.Fatalf("expected non-empty agentSync, got %v", target["agentSync"])
+	}
+	if _, ok := output["extras"]; ok {
+		t.Fatalf("did not expect extras in target list JSON, got %v", output["extras"])
+	}
+}
+
 // --- status --json ---
 
 func TestStatus_JSON(t *testing.T) {

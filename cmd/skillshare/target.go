@@ -445,10 +445,13 @@ type targetListJSONItem struct {
 	Name               string   `json:"name"`
 	Path               string   `json:"path"`
 	Mode               string   `json:"mode"`
+	TargetNaming       string   `json:"targetNaming"`
+	Sync               string   `json:"sync"`
 	Include            []string `json:"include"`
 	Exclude            []string `json:"exclude"`
 	AgentPath          string   `json:"agentPath,omitempty"`
 	AgentMode          string   `json:"agentMode,omitempty"`
+	AgentSync          string   `json:"agentSync,omitempty"`
 	AgentInclude       []string `json:"agentInclude,omitempty"`
 	AgentExclude       []string `json:"agentExclude,omitempty"`
 	AgentLinkedCount   *int     `json:"agentLinkedCount,omitempty"`
@@ -478,31 +481,18 @@ func targetList(jsonOutput bool) error {
 }
 
 func targetListJSON(cfg *config.Config) error {
-	agentBuilder, err := targetsummary.NewGlobalBuilder(cfg)
+	items, err := buildTargetTUIItems(false, "")
 	if err != nil {
 		return err
 	}
 
-	var items []targetListJSONItem
-	for name, target := range cfg.Targets {
-		sc := target.SkillsConfig()
-		item := targetListJSONItem{
-			Name:    name,
-			Path:    sc.Path,
-			Mode:    getTargetMode(sc.Mode, cfg.Mode),
-			Include: sc.Include,
-			Exclude: sc.Exclude,
-		}
-		agentSummary, err := agentBuilder.GlobalTarget(name, target)
-		if err != nil {
-			return err
-		}
-		applyTargetListAgentSummary(&item, agentSummary)
-		items = append(items, item)
+	outputItems := make([]targetListJSONItem, 0, len(items))
+	for _, item := range items {
+		outputItems = append(outputItems, newTargetListJSONItem(item))
 	}
 	output := struct {
 		Targets []targetListJSONItem `json:"targets"`
-	}{Targets: items}
+	}{Targets: outputItems}
 	return writeJSON(&output)
 }
 

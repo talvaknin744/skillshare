@@ -16,11 +16,28 @@ func applyTargetListAgentSummary(item *targetListJSONItem, summary *targetsummar
 
 	item.AgentPath = summary.Path
 	item.AgentMode = summary.Mode
+	item.AgentSync = formatTargetAgentSyncSummary(summary)
 	item.AgentInclude = append([]string(nil), summary.Include...)
 	item.AgentExclude = append([]string(nil), summary.Exclude...)
 	item.AgentLinkedCount = intPtr(summary.ManagedCount)
 	item.AgentLocalCount = intPtr(summary.LocalCount)
 	item.AgentExpectedCount = intPtr(summary.ExpectedCount)
+}
+
+func newTargetListJSONItem(item targetTUIItem) targetListJSONItem {
+	sc := item.target.SkillsConfig()
+
+	jsonItem := targetListJSONItem{
+		Name:         item.name,
+		Path:         sc.Path,
+		Mode:         sync.EffectiveMode(sc.Mode),
+		TargetNaming: config.EffectiveTargetNaming(sc.TargetNaming),
+		Sync:         item.skillSync,
+		Include:      append([]string(nil), sc.Include...),
+		Exclude:      append([]string(nil), sc.Exclude...),
+	}
+	applyTargetListAgentSummary(&jsonItem, item.agentSummary)
+	return jsonItem
 }
 
 func printTargetAgentSection(summary *targetsummary.AgentSummary) {

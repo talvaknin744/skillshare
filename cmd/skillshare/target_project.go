@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
@@ -266,43 +265,19 @@ func targetListProjectWithJSON(root string, jsonOutput bool) error {
 		}
 	}
 
-	cfg, err := config.LoadProject(root)
-	if err != nil {
-		return err
-	}
-
-	targets := make([]config.ProjectTargetEntry, len(cfg.Targets))
-	copy(targets, cfg.Targets)
-	sort.Slice(targets, func(i, j int) bool {
-		return targets[i].Name < targets[j].Name
-	})
-
 	if jsonOutput {
-		agentBuilder, err := targetsummary.NewProjectBuilder(root)
+		items, err := buildTargetTUIItems(true, root)
 		if err != nil {
 			return err
 		}
 
-		var items []targetListJSONItem
-		for _, entry := range targets {
-			sc := entry.SkillsConfig()
-			item := targetListJSONItem{
-				Name:    entry.Name,
-				Path:    projectTargetDisplayPath(entry),
-				Mode:    getTargetMode(sc.Mode, ""),
-				Include: sc.Include,
-				Exclude: sc.Exclude,
-			}
-			agentSummary, err := agentBuilder.ProjectTarget(entry)
-			if err != nil {
-				return err
-			}
-			applyTargetListAgentSummary(&item, agentSummary)
-			items = append(items, item)
+		outputItems := make([]targetListJSONItem, 0, len(items))
+		for _, item := range items {
+			outputItems = append(outputItems, newTargetListJSONItem(item))
 		}
 		output := struct {
 			Targets []targetListJSONItem `json:"targets"`
-		}{Targets: items}
+		}{Targets: outputItems}
 		return writeJSON(&output)
 	}
 

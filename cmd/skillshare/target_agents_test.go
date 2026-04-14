@@ -106,11 +106,23 @@ func TestTargetListJSON_IncludesAgentMetadata(t *testing.T) {
 	}
 
 	target := resp.Targets[0]
+	if target.Path != targetPath {
+		t.Fatalf("target path = %q, want %q", target.Path, targetPath)
+	}
+	if target.TargetNaming != "flat" {
+		t.Fatalf("target naming = %q, want flat", target.TargetNaming)
+	}
+	if target.Sync == "" {
+		t.Fatal("expected non-empty skill sync summary")
+	}
 	if target.AgentPath != agentTarget {
 		t.Fatalf("agent path = %q, want %q", target.AgentPath, agentTarget)
 	}
 	if target.AgentMode != "merge" {
 		t.Fatalf("agent mode = %q, want merge", target.AgentMode)
+	}
+	if target.AgentSync == "" {
+		t.Fatal("expected non-empty agent sync summary")
 	}
 	if target.AgentLinkedCount == nil || *target.AgentLinkedCount != 1 {
 		t.Fatalf("agent linked = %v, want 1", target.AgentLinkedCount)
