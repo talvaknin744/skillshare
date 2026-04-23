@@ -10,6 +10,9 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"unicode"
+
+	"gopkg.in/yaml.v3"
 
 	ghclient "skillshare/internal/github"
 )
@@ -67,15 +70,30 @@ type gitHubContentResponse struct {
 	Encoding string `json:"encoding"`
 }
 
+type skillMetadata struct {
+	Name        string
+	Description string
+	Valid       bool
+}
+
+var preferredSkillRepos = []string{
+	"anthropics/skills",
+	"vercel-labs/skills",
+}
+
 // Search searches GitHub for skills matching the query.
 // A single HTTP client is shared across all API calls for connection reuse.
 func Search(query string, limit int) ([]SearchResult, error) {
 	limit = normalizeLimit(limit)
 	client := ghclient.NewClient()
+	_, _, _, repoScopedQuery := parseRepoQuery(query)
 
 	searchResp, err := fetchCodeSearchResults(client, query)
 	if err != nil {
 		return nil, err
+	}
+	if !repoScopedQuery {
+		appendPreferredSkillRepoResults(client, searchResp, query)
 	}
 
 	results := processSearchItems(searchResp.Items)
@@ -83,7 +101,15 @@ func Search(query string, limit int) ([]SearchResult, error) {
 	sortByStars(results)
 
 	// Enrich top candidates with descriptions before scoring
-	enrichWithDescriptions(client, results, 30)
+	metadataLimit := 30
+	if !repoScopedQuery {
+		metadataLimit = len(results)
+	}
+	results = enrichWithDescriptions(client, results, metadataLimit, !repoScopedQuery)
+	if !repoScopedQuery {
+		results = dedupeEquivalentSkills(results)
+		results = filterLowQuality(results)
+	}
 
 	// For repo-scoped queries, score by subdir keyword (or stars-only if no subdir)
 	scoringQuery := query
@@ -154,20 +180,39 @@ func isValidGitHubName(s string) bool {
 	return true
 }
 
-// fetchCodeSearchResults fetches results from GitHub code search API
-func fetchCodeSearchResults(client *http.Client, query string) (*gitHubSearchResponse, error) {
-	var searchQuery string
+func buildGitHubCodeSearchQuery(query string) string {
+	query = strings.TrimSpace(query)
 	if query == "" {
-		searchQuery = "filename:SKILL.md"
-	} else if owner, repo, subdir, ok := parseRepoQuery(query); ok {
-		// Repo-scoped search: find SKILL.md files within a specific repo
-		searchQuery = fmt.Sprintf("filename:SKILL.md repo:%s/%s", owner, repo)
+		return `filename:SKILL.md "name:" "description:"`
+	}
+
+	if owner, repo, subdir, ok := parseRepoQuery(query); ok {
+		// Repo-scoped search: find SKILL.md files within a specific repo.
+		searchQuery := fmt.Sprintf("filename:SKILL.md repo:%s/%s", owner, repo)
 		if subdir != "" {
 			searchQuery += fmt.Sprintf(" path:%s", subdir)
 		}
-	} else {
-		searchQuery = fmt.Sprintf("filename:SKILL.md %s", query)
+		return searchQuery
 	}
+
+	return fmt.Sprintf(`filename:SKILL.md "name:" "description:" %s`, query)
+}
+
+func buildTrustedSkillRepoSearchQuery(query, repo string) string {
+	query = strings.TrimSpace(query)
+	if query == "" {
+		return fmt.Sprintf(`filename:SKILL.md repo:%s "name:" "description:"`, repo)
+	}
+	return fmt.Sprintf(`filename:SKILL.md repo:%s "name:" "description:" %s`, repo, query)
+}
+
+// fetchCodeSearchResults fetches results from GitHub code search API
+func fetchCodeSearchResults(client *http.Client, query string) (*gitHubSearchResponse, error) {
+	searchQuery := buildGitHubCodeSearchQuery(query)
+	return fetchCodeSearchResultsByQuery(client, searchQuery)
+}
+
+func fetchCodeSearchResultsByQuery(client *http.Client, searchQuery string) (*gitHubSearchResponse, error) {
 	apiURL := fmt.Sprintf(
 		"https://api.github.com/search/code?q=%s&per_page=%d",
 		url.QueryEscape(searchQuery),
@@ -203,6 +248,22 @@ func fetchCodeSearchResults(client *http.Client, query string) (*gitHubSearchRes
 	}
 
 	return &searchResp, nil
+}
+
+func appendPreferredSkillRepoResults(client *http.Client, primary *gitHubSearchResponse, query string) {
+	if primary == nil {
+		return
+	}
+
+	for _, repo := range preferredSkillRepos {
+		searchQuery := buildTrustedSkillRepoSearchQuery(query, repo)
+		resp, err := fetchCodeSearchResultsByQuery(client, searchQuery)
+		if err != nil {
+			continue
+		}
+		primary.Items = append(primary.Items, resp.Items...)
+		primary.TotalCount += resp.TotalCount
+	}
 }
 
 // processSearchItems converts raw GitHub items to SearchResults with deduplication
@@ -325,18 +386,23 @@ func sortByStars(results []SearchResult) {
 }
 
 // enrichWithDescriptions fetches descriptions and names for top results in parallel.
-func enrichWithDescriptions(client *http.Client, results []SearchResult, limit int) {
+// In broad GitHub search mode, it also drops candidates whose SKILL.md does not
+// look like a skill frontmatter document. Candidates are kept on fetch errors so
+// transient GitHub failures do not turn a search into an empty result set.
+func enrichWithDescriptions(client *http.Client, results []SearchResult, limit int, filterInvalid bool) []SearchResult {
 	const concurrency = 10
 
 	n := len(results)
 	if n > limit {
 		n = limit
 	}
+	if n <= 0 {
+		return results
+	}
 
 	type metaResult struct {
 		idx  int
-		name string
-		desc string
+		meta skillMetadata
 	}
 	ch := make(chan metaResult, n)
 	sem := make(chan struct{}, concurrency)
@@ -348,9 +414,9 @@ func enrichWithDescriptions(client *http.Client, results []SearchResult, limit i
 			defer wg.Done()
 			sem <- struct{}{}
 			defer func() { <-sem }()
-			desc, name, err := fetchSkillMetadata(client, results[idx].Owner, results[idx].Repo, results[idx].Path)
+			meta, err := fetchSkillMetadata(client, results[idx].Owner, results[idx].Repo, results[idx].Path)
 			if err == nil {
-				ch <- metaResult{idx, name, desc}
+				ch <- metaResult{idx, meta}
 			}
 		}(i)
 	}
@@ -360,14 +426,156 @@ func enrichWithDescriptions(client *http.Client, results []SearchResult, limit i
 		close(ch)
 	}()
 
+	fetched := make(map[int]skillMetadata, n)
 	for mr := range ch {
-		if mr.desc != "" {
-			results[mr.idx].Description = mr.desc
+		fetched[mr.idx] = mr.meta
+		if mr.meta.Description != "" {
+			results[mr.idx].Description = mr.meta.Description
 		}
-		if mr.name != "" {
-			results[mr.idx].Name = mr.name
+		if mr.meta.Name != "" {
+			results[mr.idx].Name = mr.meta.Name
 		}
 	}
+
+	if !filterInvalid {
+		return results
+	}
+
+	filtered := results[:0]
+	for i := range results {
+		if meta, ok := fetched[i]; ok && !meta.Valid {
+			continue
+		}
+		filtered = append(filtered, results[i])
+	}
+	return filtered
+}
+
+func dedupeEquivalentSkills(results []SearchResult) []SearchResult {
+	deduped := make([]SearchResult, 0, len(results))
+
+	for _, result := range results {
+		idx := findEquivalentSkill(deduped, result)
+		if idx < 0 {
+			deduped = append(deduped, result)
+			continue
+		}
+
+		if preferSearchResult(result, deduped[idx]) {
+			deduped[idx] = result
+		}
+	}
+
+	return deduped
+}
+
+func findEquivalentSkill(results []SearchResult, candidate SearchResult) int {
+	for i, result := range results {
+		if equivalentSkillIdentity(result, candidate) {
+			return i
+		}
+	}
+	return -1
+}
+
+func equivalentSkillIdentity(a, b SearchResult) bool {
+	nameA := normalizeSkillIdentityText(a.Name)
+	nameB := normalizeSkillIdentityText(b.Name)
+	if nameA == "" || nameA != nameB {
+		return false
+	}
+
+	descA := normalizeSkillIdentityText(a.Description)
+	descB := normalizeSkillIdentityText(b.Description)
+	if descA == "" || descB == "" {
+		return false
+	}
+	if descA == descB {
+		return true
+	}
+
+	shorter, longer := descA, descB
+	if len(shorter) > len(longer) {
+		shorter, longer = longer, shorter
+	}
+	return len(shorter) >= 80 && strings.Contains(longer, shorter)
+}
+
+func normalizeSkillIdentityText(s string) string {
+	normalized := strings.Map(func(r rune) rune {
+		switch {
+		case unicode.IsLetter(r):
+			return unicode.ToLower(r)
+		case unicode.IsDigit(r):
+			return r
+		default:
+			return ' '
+		}
+	}, strings.TrimSpace(s))
+	return strings.Join(strings.Fields(normalized), " ")
+}
+
+// filterLowQuality removes search results that are almost certainly not useful skills.
+// Preferred repos (anthropics/skills, vercel-labs/skills) are never filtered.
+// Results that failed metadata fetch are kept (transient GitHub errors shouldn't empty results).
+func filterLowQuality(results []SearchResult) []SearchResult {
+	filtered := make([]SearchResult, 0, len(results))
+	for _, r := range results {
+		if isPreferredSkillRepo(r.Owner, r.Repo) {
+			filtered = append(filtered, r)
+			continue
+		}
+		if isLowQualityResult(r) {
+			continue
+		}
+		filtered = append(filtered, r)
+	}
+	return filtered
+}
+
+func isLowQualityResult(r SearchResult) bool {
+	// Zero-star repos are almost always personal experiments or spam
+	if r.Stars == 0 {
+		return true
+	}
+	// Very short descriptions indicate stub or auto-generated skills
+	if len(strings.TrimSpace(r.Description)) > 0 && len(strings.TrimSpace(r.Description)) < 10 {
+		return true
+	}
+	// Known spam organizations
+	if isSpamOrg(r.Owner) {
+		return true
+	}
+	return false
+}
+
+var spamOrgs = []string{
+	"inference-sh",
+}
+
+func isSpamOrg(owner string) bool {
+	ol := strings.ToLower(strings.TrimSpace(owner))
+	for _, org := range spamOrgs {
+		if ol == org {
+			return true
+		}
+	}
+	return false
+}
+
+func preferSearchResult(candidate, current SearchResult) bool {
+	candidateQuality := sourceQualityScore(candidate)
+	currentQuality := sourceQualityScore(current)
+	if candidateQuality != currentQuality {
+		return candidateQuality > currentQuality
+	}
+	if candidate.Stars != current.Stars {
+		return candidate.Stars > current.Stars
+	}
+	if len(candidate.Path) != len(current.Path) {
+		return len(candidate.Path) < len(current.Path)
+	}
+	return candidate.Source < current.Source
 }
 
 // scoreAndSort computes relevance scores and sorts results descending.
@@ -409,8 +617,8 @@ func fetchRepoStars(client *http.Client, owner, repo string) (int, error) {
 	return repoInfo.StargazersCount, nil
 }
 
-// fetchSkillMetadata fetches SKILL.md and extracts description and name from frontmatter.
-func fetchSkillMetadata(client *http.Client, owner, repo, path string) (desc, name string, err error) {
+// fetchSkillMetadata fetches SKILL.md and extracts skill metadata from frontmatter.
+func fetchSkillMetadata(client *http.Client, owner, repo, path string) (skillMetadata, error) {
 	skillPath := "SKILL.md"
 	if path != "" && path != "." {
 		skillPath = path + "/SKILL.md"
@@ -423,35 +631,136 @@ func fetchSkillMetadata(client *http.Client, owner, repo, path string) (desc, na
 
 	req, err := ghclient.NewRequest(apiURL)
 	if err != nil {
-		return "", "", err
+		return skillMetadata{}, err
 	}
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", "", err
+		return skillMetadata{}, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return "", "", fmt.Errorf("failed to fetch SKILL.md")
+		return skillMetadata{}, fmt.Errorf("failed to fetch SKILL.md")
 	}
 
 	var content gitHubContentResponse
 	if err := json.NewDecoder(resp.Body).Decode(&content); err != nil {
-		return "", "", err
+		return skillMetadata{}, err
 	}
 
 	if content.Encoding != "base64" {
-		return "", "", fmt.Errorf("unexpected encoding: %s", content.Encoding)
+		return skillMetadata{}, fmt.Errorf("unexpected encoding: %s", content.Encoding)
 	}
 
 	decoded, err := base64.StdEncoding.DecodeString(content.Content)
 	if err != nil {
-		return "", "", err
+		return skillMetadata{}, err
 	}
 
-	body := string(decoded)
-	return parseFrontmatterField(body, "description"), parseFrontmatterField(body, "name"), nil
+	return parseSkillMetadata(string(decoded)), nil
+}
+
+func parseSkillMetadata(content string) skillMetadata {
+	raw, ok := extractSkillFrontmatter(content)
+	if !ok {
+		return skillMetadata{}
+	}
+
+	var fm map[string]any
+	if err := yaml.Unmarshal([]byte(raw), &fm); err != nil {
+		return skillMetadata{}
+	}
+
+	name := yamlScalarString(fm["name"])
+	desc := yamlScalarString(fm["description"])
+	if !isDiscoverableSkillFrontmatter(fm, name, desc) {
+		return skillMetadata{}
+	}
+	return skillMetadata{
+		Name:        name,
+		Description: desc,
+		Valid:       true,
+	}
+}
+
+func extractSkillFrontmatter(content string) (string, bool) {
+	lines := strings.Split(content, "\n")
+	if len(lines) < 3 || strings.TrimSpace(lines[0]) != "---" {
+		return "", false
+	}
+
+	for i := 1; i < len(lines); i++ {
+		if strings.TrimSpace(lines[i]) == "---" {
+			return strings.Join(lines[1:i], "\n"), true
+		}
+	}
+	return "", false
+}
+
+func isDiscoverableSkillFrontmatter(fm map[string]any, name, desc string) bool {
+	if !isValidSkillName(name) {
+		return false
+	}
+	if desc != "" {
+		return true
+	}
+
+	for _, field := range []string{"metadata", "targets", "allowed-tools", "tags", "pattern", "category"} {
+		if hasYAMLValue(fm[field]) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func isValidSkillName(name string) bool {
+	if name == "" {
+		return false
+	}
+	for i, c := range name {
+		if (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') {
+			continue
+		}
+		if (c == '-' || c == '_') && i > 0 {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func yamlScalarString(v any) string {
+	switch x := v.(type) {
+	case string:
+		return strings.TrimSpace(x)
+	case int:
+		return fmt.Sprintf("%d", x)
+	case int64:
+		return fmt.Sprintf("%d", x)
+	case float64:
+		return strings.TrimRight(strings.TrimRight(fmt.Sprintf("%f", x), "0"), ".")
+	case bool:
+		return fmt.Sprintf("%t", x)
+	default:
+		return ""
+	}
+}
+
+func hasYAMLValue(v any) bool {
+	switch x := v.(type) {
+	case nil:
+		return false
+	case string:
+		return strings.TrimSpace(x) != ""
+	case []any:
+		return len(x) > 0
+	case map[string]any:
+		return len(x) > 0
+	default:
+		return true
+	}
 }
 
 // parseFrontmatterField extracts a field value from YAML frontmatter.

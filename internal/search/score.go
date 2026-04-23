@@ -5,11 +5,14 @@ import (
 	"strings"
 )
 
-// Scoring weights for multi-signal relevance ranking
+// Scoring weights for multi-signal relevance ranking.
+// Stars weight is high because it's the strongest proxy for "someone actually uses this."
+// Name match still matters but shouldn't let 0-star repos dominate results.
 const (
-	weightName        = 0.45
-	weightDescription = 0.25
-	weightStars       = 0.30
+	weightName        = 0.30
+	weightDescription = 0.20
+	weightStars       = 0.25
+	weightSource      = 0.25
 )
 
 // scoreResult computes a composite relevance score for a search result.
@@ -23,8 +26,9 @@ func scoreResult(r SearchResult, query string) float64 {
 	name := nameMatchScore(r.Name, query)
 	desc := descriptionMatchScore(r.Description, query)
 	stars := normalizeStars(r.Stars)
+	source := sourceQualityScore(r)
 
-	return name*weightName + desc*weightDescription + stars*weightStars
+	return name*weightName + desc*weightDescription + stars*weightStars + source*weightSource
 }
 
 // nameMatchScore scores how well a skill name matches the query.
@@ -80,14 +84,70 @@ func descriptionMatchScore(desc, query string) float64 {
 }
 
 // normalizeStars maps star count to [0, 1] using log10 scale.
-// 0 → 0, 10 → 0.2, 100 → 0.4, 1000 → 0.6, 10000 → 0.8, 100000+ → 1.0
+// The divisor of 3.0 gives better differentiation in the 5-50 star range
+// where most useful skills live:
+// 0 → 0, 1 → 0, 5 → 0.23, 10 → 0.33, 50 → 0.57, 100 → 0.67, 1000+ → 1.0
 func normalizeStars(stars int) float64 {
-	if stars <= 0 {
+	if stars <= 1 {
 		return 0.0
 	}
-	v := math.Log10(float64(stars)) / 5.0 // log10(100000) = 5
+	v := math.Log10(float64(stars)) / 3.0 // log10(1000) = 3
 	if v > 1.0 {
 		return 1.0
 	}
 	return v
+}
+
+func sourceQualityScore(r SearchResult) float64 {
+	if isPreferredSkillRepo(r.Owner, r.Repo) {
+		return 1.0
+	}
+
+	score := 0.15 // low base: unknown repos must earn their score
+	path := strings.ToLower(strings.TrimSpace(r.Path))
+	repo := strings.ToLower(strings.TrimSpace(r.Repo))
+
+	if path == "skills/"+strings.ToLower(r.Name) || strings.HasPrefix(path, "skills/") {
+		score += 0.25
+	}
+	if strings.Contains(repo, "skill") || strings.Contains(path, "/skills/") || strings.HasSuffix(path, "/skills") {
+		score += 0.15
+	}
+	if pathLooksLikeSecondaryCopy(path) {
+		score -= 0.25
+	}
+
+	if score < 0 {
+		return 0
+	}
+	if score > 1 {
+		return 1
+	}
+	return score
+}
+
+func isPreferredSkillRepo(owner, repo string) bool {
+	fullName := strings.ToLower(strings.TrimSpace(owner + "/" + repo))
+	for _, preferred := range preferredSkillRepos {
+		if fullName == strings.ToLower(preferred) {
+			return true
+		}
+	}
+	return false
+}
+
+func pathLooksLikeSecondaryCopy(path string) bool {
+	if path == "" || path == "." {
+		return false
+	}
+	segments := strings.FieldsFunc(path, func(r rune) bool {
+		return r == '/' || r == '\\'
+	})
+	for _, segment := range segments {
+		switch segment {
+		case "docs", "doc", "example", "examples", "demo", "demos", "test", "tests", "tmp", "temp", "trash", "archive", "archives", "backup", "backups":
+			return true
+		}
+	}
+	return false
 }

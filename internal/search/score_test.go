@@ -67,12 +67,13 @@ func TestNormalizeStars(t *testing.T) {
 	}{
 		{"zero", 0, 0.0},
 		{"one", 1, 0.0},
-		{"ten", 10, 0.2},
-		{"hundred", 100, 0.4},
-		{"thousand", 1000, 0.6},
-		{"ten thousand", 10000, 0.8},
-		{"hundred thousand", 100000, 1.0},
-		{"million capped", 1000000, 1.0},
+		{"five", 5, 0.23},
+		{"ten", 10, 0.33},
+		{"fifty", 50, 0.57},
+		{"hundred", 100, 0.67},
+		{"thousand", 1000, 1.0},
+		{"ten thousand capped", 10000, 1.0},
+		{"hundred thousand capped", 100000, 1.0},
 	}
 
 	for _, tt := range tests {
@@ -194,5 +195,284 @@ func TestParseRepoQuery(t *testing.T) {
 				t.Errorf("subdir = %q, want %q", subdir, tt.subdir)
 			}
 		})
+	}
+}
+
+func TestBuildGitHubCodeSearchQuery(t *testing.T) {
+	tests := []struct {
+		desc  string
+		query string
+		want  string
+	}{
+		{
+			desc:  "browse requires skill metadata",
+			query: "",
+			want:  `filename:SKILL.md "name:" "description:"`,
+		},
+		{
+			desc:  "keyword search requires skill metadata",
+			query: "react",
+			want:  `filename:SKILL.md "name:" "description:" react`,
+		},
+		{
+			desc:  "repo-scoped search stays repo scoped",
+			query: "anthropics/skills/skills/pdf",
+			want:  "filename:SKILL.md repo:anthropics/skills path:skills/pdf",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			got := buildGitHubCodeSearchQuery(tt.query)
+			if got != tt.want {
+				t.Errorf("buildGitHubCodeSearchQuery(%q) = %q, want %q", tt.query, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseSkillMetadata(t *testing.T) {
+	tests := []struct {
+		desc      string
+		content   string
+		wantValid bool
+		wantName  string
+		wantDesc  string
+	}{
+		{
+			desc: "valid skill with block description",
+			content: `---
+name: react-best-practices
+description: >-
+  React and Next.js performance guidance.
+---
+# React Best Practices
+`,
+			wantValid: true,
+			wantName:  "react-best-practices",
+			wantDesc:  "React and Next.js performance guidance.",
+		},
+		{
+			desc: "valid skill with metadata and no description",
+			content: `---
+name: claude-only
+metadata:
+  targets: [claude]
+---
+# Claude Only
+`,
+			wantValid: true,
+			wantName:  "claude-only",
+		},
+		{
+			desc: "markdown only is not discoverable from broad GitHub search",
+			content: `# SKILL
+
+This is a generic markdown page that happens to use this filename.
+`,
+			wantValid: false,
+		},
+		{
+			desc: "invalid skill name is rejected",
+			content: `---
+name: "Sword Fighting"
+description: Generic game skill notes
+---
+# Sword Fighting
+`,
+			wantValid: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			got := parseSkillMetadata(tt.content)
+			if got.Valid != tt.wantValid {
+				t.Fatalf("Valid = %v, want %v", got.Valid, tt.wantValid)
+			}
+			if got.Name != tt.wantName {
+				t.Errorf("Name = %q, want %q", got.Name, tt.wantName)
+			}
+			if got.Description != tt.wantDesc {
+				t.Errorf("Description = %q, want %q", got.Description, tt.wantDesc)
+			}
+		})
+	}
+}
+
+func TestBuildTrustedSkillRepoSearchQuery(t *testing.T) {
+	got := buildTrustedSkillRepoSearchQuery("frontend-design", "anthropics/skills")
+	want := `filename:SKILL.md repo:anthropics/skills "name:" "description:" frontend-design`
+	if got != want {
+		t.Fatalf("buildTrustedSkillRepoSearchQuery() = %q, want %q", got, want)
+	}
+}
+
+func TestFilterLowQuality(t *testing.T) {
+	tests := []struct {
+		desc      string
+		results   []SearchResult
+		wantCount int
+		wantNames []string
+	}{
+		{
+			desc: "filters zero-star non-preferred repos",
+			results: []SearchResult{
+				{Name: "good-skill", Stars: 10, Owner: "someone", Repo: "skills"},
+				{Name: "zero-star", Stars: 0, Owner: "random", Repo: "test"},
+				{Name: "also-good", Stars: 5, Owner: "dev", Repo: "tools"},
+			},
+			wantCount: 2,
+			wantNames: []string{"good-skill", "also-good"},
+		},
+		{
+			desc: "keeps zero-star preferred repos",
+			results: []SearchResult{
+				{Name: "new-skill", Stars: 0, Owner: "anthropics", Repo: "skills"},
+				{Name: "zero-star", Stars: 0, Owner: "random", Repo: "test"},
+			},
+			wantCount: 1,
+			wantNames: []string{"new-skill"},
+		},
+		{
+			desc: "filters short descriptions",
+			results: []SearchResult{
+				{Name: "good", Stars: 5, Description: "A comprehensive tool for code review", Owner: "a", Repo: "b"},
+				{Name: "stub", Stars: 5, Description: "test", Owner: "c", Repo: "d"},
+			},
+			wantCount: 1,
+			wantNames: []string{"good"},
+		},
+		{
+			desc: "keeps results with no description (fetch may have failed)",
+			results: []SearchResult{
+				{Name: "no-desc", Stars: 5, Description: "", Owner: "a", Repo: "b"},
+			},
+			wantCount: 1,
+			wantNames: []string{"no-desc"},
+		},
+		{
+			desc: "filters spam orgs",
+			results: []SearchResult{
+				{Name: "legit", Stars: 10, Owner: "dev", Repo: "skills"},
+				{Name: "spam", Stars: 100, Owner: "inference-sh", Repo: "skills"},
+			},
+			wantCount: 1,
+			wantNames: []string{"legit"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			got := filterLowQuality(tt.results)
+			if len(got) != tt.wantCount {
+				t.Fatalf("got %d results, want %d", len(got), tt.wantCount)
+			}
+			for i, name := range tt.wantNames {
+				if got[i].Name != name {
+					t.Errorf("result[%d].Name = %q, want %q", i, got[i].Name, name)
+				}
+			}
+		})
+	}
+}
+
+func TestIsLowQualityResult(t *testing.T) {
+	tests := []struct {
+		desc   string
+		result SearchResult
+		want   bool
+	}{
+		{"zero stars", SearchResult{Stars: 0, Owner: "x", Repo: "y"}, true},
+		{"one star", SearchResult{Stars: 1, Owner: "x", Repo: "y"}, false},
+		{"good result", SearchResult{Stars: 10, Description: "A useful skill", Owner: "x", Repo: "y"}, false},
+		{"short desc", SearchResult{Stars: 5, Description: "hi", Owner: "x", Repo: "y"}, true},
+		{"9-char desc", SearchResult{Stars: 5, Description: "123456789", Owner: "x", Repo: "y"}, true},
+		{"10-char desc ok", SearchResult{Stars: 5, Description: "1234567890", Owner: "x", Repo: "y"}, false},
+		{"empty desc ok", SearchResult{Stars: 5, Description: "", Owner: "x", Repo: "y"}, false},
+		{"spam org", SearchResult{Stars: 100, Owner: "inference-sh", Repo: "skills"}, true},
+		{"spam org case insensitive", SearchResult{Stars: 100, Owner: "Inference-SH", Repo: "skills"}, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			got := isLowQualityResult(tt.result)
+			if got != tt.want {
+				t.Errorf("isLowQualityResult() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDedupeEquivalentSkills_PrefersTrustedSource(t *testing.T) {
+	results := []SearchResult{
+		{
+			Name:        "frontend-design",
+			Description: "Create distinctive, production-grade frontend interfaces.",
+			Source:      "random/app/.claude/skills/frontend-design",
+			Owner:       "random",
+			Repo:        "app",
+			Path:        ".claude/skills/frontend-design",
+			Stars:       5000,
+		},
+		{
+			Name:        "frontend-design",
+			Description: "Create distinctive, production-grade frontend interfaces.",
+			Source:      "anthropics/skills/skills/frontend-design",
+			Owner:       "anthropics",
+			Repo:        "skills",
+			Path:        "skills/frontend-design",
+			Stars:       10,
+		},
+	}
+
+	got := dedupeEquivalentSkills(results)
+	if len(got) != 1 {
+		t.Fatalf("got %d results, want 1", len(got))
+	}
+	if got[0].Source != "anthropics/skills/skills/frontend-design" {
+		t.Fatalf("source = %q, want trusted source", got[0].Source)
+	}
+}
+
+func TestDedupeEquivalentSkills_MergesExtendedDescriptions(t *testing.T) {
+	results := []SearchResult{
+		{
+			Name:        "frontend-design",
+			Description: "Create distinctive, production-grade frontend interfaces with high design quality. Use this skill when the user asks to build web components, pages, artifacts, posters, or applications.",
+			Source:      "copy/app/.agent/skills/frontend-design",
+			Owner:       "copy",
+			Repo:        "app",
+			Path:        ".agent/skills/frontend-design",
+			Stars:       50,
+		},
+		{
+			Name:        "frontend-design",
+			Description: "Create distinctive, production-grade frontend interfaces with high design quality. Use this skill when the user asks to build web components, pages, artifacts, posters, or applications (examples include websites, landing pages, dashboards, React components, HTML/CSS layouts, or when styling/beautifying any web UI). Generates creative, polished code and UI design that avoids generic AI aesthetics.",
+			Source:      "anthropics/skills/skills/frontend-design",
+			Owner:       "anthropics",
+			Repo:        "skills",
+			Path:        "skills/frontend-design",
+		},
+	}
+
+	got := dedupeEquivalentSkills(results)
+	if len(got) != 1 {
+		t.Fatalf("got %d results, want 1", len(got))
+	}
+	if got[0].Source != "anthropics/skills/skills/frontend-design" {
+		t.Fatalf("source = %q, want trusted source", got[0].Source)
+	}
+}
+
+func TestDedupeEquivalentSkills_KeepsDistinctDescriptions(t *testing.T) {
+	results := []SearchResult{
+		{Name: "frontend-design", Description: "Create bold UI designs.", Source: "owner/a/skills/frontend-design", Owner: "owner", Repo: "a", Path: "skills/frontend-design"},
+		{Name: "frontend-design", Description: "Create frontend design docs.", Source: "owner/b/skills/frontend-design", Owner: "owner", Repo: "b", Path: "skills/frontend-design"},
+	}
+
+	got := dedupeEquivalentSkills(results)
+	if len(got) != 2 {
+		t.Fatalf("got %d results, want 2", len(got))
 	}
 }
