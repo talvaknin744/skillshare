@@ -707,6 +707,16 @@
   "newSkill.title": "새 Skill 만들기",
   "newSkill.toast.created": "\"{name}\" skill이 성공적으로 생성되었습니다!",
   "pagination.show": "표시",
+
+  "preview.title": "스킬 미리보기",
+  "preview.install": "설치",
+  "preview.loading": "스킬 내용 로딩 중…",
+  "preview.error": "미리보기를 불러오지 못했습니다",
+  "preview.retry": "다시 시도",
+  "preview.source": "출처",
+  "preview.license": "라이선스",
+  "preview.noContent": "SKILL.md 내용이 없습니다",
+
   "resourceDetail.actions.disable": "비활성화",
   "resourceDetail.actions.disabling": "비활성화 중...",
   "resourceDetail.actions.edit": "편집",

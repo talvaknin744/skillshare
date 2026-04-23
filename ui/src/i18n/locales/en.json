@@ -559,6 +559,15 @@
 
   "pagination.show": "Show",
 
+  "preview.title": "Skill Preview",
+  "preview.install": "Install",
+  "preview.loading": "Loading skill content…",
+  "preview.error": "Failed to load preview",
+  "preview.retry": "Retry",
+  "preview.source": "Source",
+  "preview.license": "License",
+  "preview.noContent": "No SKILL.md content available",
+
   "newSkill.back": "Back",
   "newSkill.step.category": "Category",
   "newSkill.step.confirm": "Confirm",

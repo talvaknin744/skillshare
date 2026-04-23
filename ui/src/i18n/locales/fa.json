@@ -707,6 +707,16 @@
   "newSkill.title": "ایجاد اسکیل جدید",
   "newSkill.toast.created": "اسکیل \"{name}\" با موفقیت ایجاد شد!",
   "pagination.show": "نمایش",
+
+  "preview.title": "پیش‌نمایش اسکیل",
+  "preview.install": "نصب",
+  "preview.loading": "در حال بارگذاری محتوا…",
+  "preview.error": "بارگذاری پیش‌نمایش ناموفق بود",
+  "preview.retry": "تلاش مجدد",
+  "preview.source": "منبع",
+  "preview.license": "مجوز",
+  "preview.noContent": "محتوای SKILL.md موجود نیست",
+
   "resourceDetail.actions.disable": "غیرفعال کردن",
   "resourceDetail.actions.disabling": "در حال غیرفعال‌سازی...",
   "resourceDetail.actions.edit": "ویرایش",

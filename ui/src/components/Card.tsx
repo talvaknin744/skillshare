@@ -11,6 +11,7 @@ interface CardProps {
   padding?: 'none' | 'sm' | 'md';
   style?: CSSProperties;
   skillCard?: boolean;
+  onClick?: () => void;
 }
 
 const variantStyles = {
@@ -41,9 +42,11 @@ export default function Card({
   padding = 'md',
   style,
   skillCard = false,
+  onClick,
 }: CardProps) {
   return (
     <div
+      onClick={onClick}
       className={`
         ss-card
         ${skillCard ? 'ss-skill-card' : ''}

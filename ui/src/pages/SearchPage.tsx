@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import { Search, Star, Download, Globe, Database, Settings, LayoutGrid, List } from 'lucide-react';
+import { Search, Star, Globe, Database, Settings, LayoutGrid, List } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useT } from '../i18n';
 import Card from '../components/Card';
@@ -10,6 +10,7 @@ import SegmentedControl from '../components/SegmentedControl';
 import { Input, Select } from '../components/Input';
 import SkillPickerModal from '../components/SkillPickerModal';
 import HubManagerModal, { type SavedHub } from '../components/HubManagerModal';
+import SkillPreviewModal from '../components/SkillPreviewModal';
 import Pagination from '../components/Pagination';
 import Tooltip from '../components/Tooltip';
 import EmptyState from '../components/EmptyState';
@@ -97,6 +98,9 @@ export default function SearchPage() {
   const [pendingSource, setPendingSource] = useState('');
   const [batchInstalling, setBatchInstalling] = useState(false);
 
+  // Preview modal state
+  const [previewResult, setPreviewResult] = useState<SearchResult | null>(null);
+
   // Fetch hub config from server on mount
   useEffect(() => {
     fetchHubConfig();
@@ -122,7 +126,7 @@ export default function SearchPage() {
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [hasMore]);
+  }, [hasMore, visibleCount]);
 
   const fetchHubConfig = async () => {
     try {
@@ -501,8 +505,8 @@ export default function SearchPage() {
           {viewType === 'card' ? (
             <div className="space-y-3">
               {visible.map((r) => (
-                <Card key={r.source} tilt>
-                  <div className="flex items-start justify-between gap-4">
+                <Card key={r.source} tilt className="cursor-pointer hover:border-pencil/50 transition-colors" onClick={() => setPreviewResult(r)}>
+                  <div className="flex items-start gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <span className="font-bold text-pencil text-lg">
@@ -530,16 +534,6 @@ export default function SearchPage() {
                         {r.source}
                       </p>
                     </div>
-                    <Button
-                      onClick={() => handleInstall(r.source, r.skill)}
-                      variant="secondary"
-                      size="sm"
-                      loading={installing === r.source}
-                      className="shrink-0"
-                    >
-                      {installing !== r.source && <Download size={14} strokeWidth={2.5} />}
-                      {t('search.table.installButton')}
-                    </Button>
                   </div>
                 </Card>
               ))}
@@ -552,8 +546,8 @@ export default function SearchPage() {
               pageSize={tablePageSize}
               onPageChange={setTablePage}
               onPageSizeChange={(s) => { setTablePageSize(s); setTablePage(0); }}
-              installing={installing}
-              onInstall={handleInstall}
+              onPreview={setPreviewResult}
+              showStars={mode === 'github'}
             />
           )}
         </div>
@@ -594,6 +588,24 @@ export default function SearchPage() {
         />
       )}
 
+      {/* Skill Preview Modal */}
+      {previewResult && (
+        <SkillPreviewModal
+          source={previewResult.source}
+          skill={previewResult.skill}
+          stars={previewResult.stars}
+          owner={previewResult.owner}
+          description={previewResult.description}
+          tags={previewResult.tags}
+          onClose={() => setPreviewResult(null)}
+          onInstall={async (source, skill) => {
+            await handleInstall(source, skill);
+            setPreviewResult(null);
+          }}
+          installing={installing === previewResult.source}
+        />
+      )}
+
       {/* Hub Manager Modal */}
       <HubManagerModal
         open={showHubManager}
@@ -623,16 +635,16 @@ function SearchResultsTable({
   pageSize,
   onPageChange,
   onPageSizeChange,
-  installing,
-  onInstall,
+  onPreview,
+  showStars = true,
 }: {
   results: SearchResult[];
   page: number;
   pageSize: number;
   onPageChange: (p: number) => void;
   onPageSizeChange: (s: number) => void;
-  installing: string | null;
-  onInstall: (source: string, skill?: string) => void;
+  onPreview: (result: SearchResult) => void;
+  showStars?: boolean;
 }) {
   const t = useT();
   const totalPages = Math.max(1, Math.ceil(results.length / pageSize));
@@ -648,16 +660,15 @@ function SearchResultsTable({
               <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">{t('search.table.columnName')}</th>
               <th className="pb-3 pr-4 text-pencil-light text-sm font-medium hidden md:table-cell">{t('search.table.columnDescription')}</th>
               <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">{t('search.table.columnOwner')}</th>
-              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">{t('search.table.columnStars')}</th>
-              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium hidden lg:table-cell">{t('search.table.columnTags')}</th>
-              <th className="pb-3 text-pencil-light text-sm font-medium w-[100px]" />
+              {showStars && <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">{t('search.table.columnStars')}</th>}
             </tr>
           </thead>
           <tbody>
             {visible.map((r) => (
               <tr
                 key={r.source}
-                className="border-b border-dashed border-muted hover:bg-paper-warm/60 transition-colors"
+                className="border-b border-dashed border-muted hover:bg-paper-warm/60 transition-colors cursor-pointer"
+                onClick={() => onPreview(r)}
               >
                 {/* Name + source */}
                 <td className="py-3 pr-4">
@@ -677,39 +688,18 @@ function SearchResultsTable({
                   {r.owner ? <Badge>{r.owner}</Badge> : <span className="text-muted-dark">—</span>}
                 </td>
                 {/* Stars */}
-                <td className="py-3 pr-4">
-                  {r.stars > 0 ? (
-                    <span className="flex items-center gap-1 text-sm text-warning">
-                      <Star size={14} strokeWidth={2.5} fill="currentColor" />
-                      {r.stars}
-                    </span>
-                  ) : (
-                    <span className="text-muted-dark">—</span>
-                  )}
-                </td>
-                {/* Tags */}
-                <td className="py-3 pr-4 hidden lg:table-cell">
-                  <div className="flex flex-wrap gap-1 max-w-[200px]">
-                    {(r.tags ?? []).slice(0, 3).map((tag) => (
-                      <Badge key={tag} variant="info" size="sm">#{tag}</Badge>
-                    ))}
-                    {(r.tags ?? []).length > 3 && (
-                      <Badge variant="default" size="sm">+{r.tags!.length - 3}</Badge>
+                {showStars && (
+                  <td className="py-3 pr-4">
+                    {r.stars > 0 ? (
+                      <span className="flex items-center gap-1 text-sm text-warning">
+                        <Star size={14} strokeWidth={2.5} fill="currentColor" />
+                        {r.stars}
+                      </span>
+                    ) : (
+                      <span className="text-muted-dark">—</span>
                     )}
-                  </div>
-                </td>
-                {/* Install */}
-                <td className="py-3">
-                  <Button
-                    onClick={() => onInstall(r.source, r.skill)}
-                    variant="secondary"
-                    size="sm"
-                    loading={installing === r.source}
-                  >
-                    {installing !== r.source && <Download size={14} strokeWidth={2.5} />}
-                    {t('search.table.installButton')}
-                  </Button>
-                </td>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

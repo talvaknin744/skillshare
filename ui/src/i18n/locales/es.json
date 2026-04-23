@@ -707,6 +707,16 @@
   "newSkill.title": "Crear nueva skill",
   "newSkill.toast.created": "¡Skill \"{name}\" creada correctamente!",
   "pagination.show": "Mostrar",
+
+  "preview.title": "Vista previa del skill",
+  "preview.install": "Instalar",
+  "preview.loading": "Cargando contenido…",
+  "preview.error": "Error al cargar la vista previa",
+  "preview.retry": "Reintentar",
+  "preview.source": "Fuente",
+  "preview.license": "Licencia",
+  "preview.noContent": "No hay contenido SKILL.md disponible",
+
   "resourceDetail.actions.disable": "Desactivar",
   "resourceDetail.actions.disabling": "Desactivando...",
   "resourceDetail.actions.edit": "Editar",

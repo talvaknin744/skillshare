@@ -707,6 +707,16 @@
   "newSkill.title": "建立新 Skill",
   "newSkill.toast.created": "Skill「{name}」已成功建立！",
   "pagination.show": "顯示",
+
+  "preview.title": "技能預覽",
+  "preview.install": "安裝",
+  "preview.loading": "載入技能內容中…",
+  "preview.error": "無法載入預覽",
+  "preview.retry": "重試",
+  "preview.source": "來源",
+  "preview.license": "授權",
+  "preview.noContent": "沒有 SKILL.md 內容",
+
   "resourceDetail.actions.disable": "停用",
   "resourceDetail.actions.disabling": "停用中…",
   "resourceDetail.actions.edit": "編輯",

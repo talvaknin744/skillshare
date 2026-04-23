@@ -335,6 +335,8 @@ export const api = {
     apiFetch<{ results: SearchResult[] }>(`/search?q=${encodeURIComponent(q)}&limit=${limit}`),
   searchHub: (q: string, hubURL: string) =>
     apiFetch<{ results: SearchResult[] }>(`/search?q=${encodeURIComponent(q)}&hub=${encodeURIComponent(hubURL)}`),
+  preview: (source: string) =>
+    apiFetch<SkillPreview>(`/preview?source=${encodeURIComponent(source)}`),
   check: () => apiFetch<CheckResult>('/check'),
   checkStream: (
     onDiscovering: () => void,
@@ -781,6 +783,18 @@ export interface SearchResult {
   owner: string;
   repo: string;
   tags?: string[];
+}
+
+export interface SkillPreview {
+  name: string;
+  description: string;
+  license?: string;
+  tags?: string[];
+  content: string;
+  source: string;
+  stars: number;
+  owner: string;
+  repo: string;
 }
 
 export interface InstallResult {
