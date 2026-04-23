@@ -44,9 +44,13 @@ export default function Card({
   skillCard = false,
   onClick,
 }: CardProps) {
+  const interactive = !!onClick;
   return (
     <div
       onClick={onClick}
+      onKeyDown={interactive ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick!(); } } : undefined}
+      role={interactive ? 'button' : undefined}
+      tabIndex={interactive ? 0 : undefined}
       className={`
         ss-card
         ${skillCard ? 'ss-skill-card' : ''}

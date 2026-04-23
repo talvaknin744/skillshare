@@ -591,12 +591,7 @@ export default function SearchPage() {
       {/* Skill Preview Modal */}
       {previewResult && (
         <SkillPreviewModal
-          source={previewResult.source}
-          skill={previewResult.skill}
-          stars={previewResult.stars}
-          owner={previewResult.owner}
-          description={previewResult.description}
-          tags={previewResult.tags}
+          result={previewResult}
           onClose={() => setPreviewResult(null)}
           onInstall={async (source, skill) => {
             await handleInstall(source, skill);
@@ -668,7 +663,10 @@ function SearchResultsTable({
               <tr
                 key={r.source}
                 className="border-b border-dashed border-muted hover:bg-paper-warm/60 transition-colors cursor-pointer"
+                tabIndex={0}
+                role="button"
                 onClick={() => onPreview(r)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPreview(r); } }}
               >
                 {/* Name + source */}
                 <td className="py-3 pr-4">

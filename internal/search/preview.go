@@ -3,6 +3,7 @@ package search
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -10,6 +11,9 @@ import (
 
 	ghclient "skillshare/internal/github"
 )
+
+// ErrSkillNotFound is returned when SKILL.md cannot be found at the given source.
+var ErrSkillNotFound = errors.New("skill not found")
 
 // SkillPreview contains the full SKILL.md content + parsed frontmatter metadata
 // for previewing a remote skill before installation.
@@ -64,10 +68,10 @@ func FetchSkillContent(client *http.Client, owner, repo, path, branch string) (*
 		if resolved := resolveSkillPath(client, owner, repo, path, branch); resolved != "" {
 			return FetchSkillContent(client, owner, repo, resolved, branch)
 		}
-		return nil, fmt.Errorf("SKILL.md not found at %s/%s/%s", owner, repo, path)
+		return nil, fmt.Errorf("%w: %s/%s/%s", ErrSkillNotFound, owner, repo, path)
 	}
 	if resp.StatusCode == http.StatusNotFound {
-		return nil, fmt.Errorf("SKILL.md not found at %s/%s", owner, repo)
+		return nil, fmt.Errorf("%w: %s/%s", ErrSkillNotFound, owner, repo)
 	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("GitHub API returned %d", resp.StatusCode)

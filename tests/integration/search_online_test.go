@@ -23,7 +23,7 @@ func TestSearch_BasicQuery(t *testing.T) {
 targets: {}
 `)
 
-	result := sb.RunCLI("search", "skillshare", "--limit", "3")
+	result := sb.RunCLI("search", "skillshare", "--limit", "3", "--list")
 
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "skillshare")

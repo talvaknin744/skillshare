@@ -7,29 +7,19 @@ import Button from './Button';
 import Badge from './Badge';
 import IconButton from './IconButton';
 import Spinner from './Spinner';
-import { api, type SkillPreview } from '../api/client';
+import { api, type SkillPreview, type SearchResult } from '../api/client';
 import { useT } from '../i18n';
 import { parseSkillMarkdown } from '../lib/frontmatter';
 
 interface SkillPreviewModalProps {
-  source: string;
-  skill?: string;
-  stars?: number;
-  owner?: string;
-  description?: string;
-  tags?: string[];
+  result: SearchResult;
   onClose: () => void;
   onInstall: (source: string, skill?: string) => void;
   installing?: boolean;
 }
 
 export default function SkillPreviewModal({
-  source,
-  skill,
-  stars: initialStars,
-  owner: initialOwner,
-  description: initialDescription,
-  tags: initialTags,
+  result,
   onClose,
   onInstall,
   installing = false,
@@ -43,27 +33,25 @@ export default function SkillPreviewModal({
     setLoading(true);
     setError(null);
     api
-      .preview(source)
+      .preview(result.source)
       .then(setData)
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [source]);
+  }, [result.source]);
 
   useEffect(() => {
     fetchPreview();
   }, [fetchPreview]);
 
-  const name = data?.name || source.split('/').pop() || source;
-  const owner = data?.owner || initialOwner;
-  const stars = data?.stars ?? initialStars ?? 0;
-  const description = data?.description || initialDescription;
+  const name = data?.name || result.source.split('/').pop() || result.source;
+  const owner = data?.owner || result.owner;
+  const stars = data?.stars ?? result.stars ?? 0;
+  const description = data?.description || result.description;
   const license = data?.license;
-  const tags = data?.tags || initialTags;
+  const tags = data?.tags || result.tags;
 
-  // If fetch fails but we have metadata from props, show that instead of error
-  const hasFallback = !!(initialDescription || initialTags?.length);
+  const hasFallback = !!(result.description || result.tags?.length);
 
-  // Parse body (strip frontmatter) for rendering
   const markdownBody = data?.content
     ? parseSkillMarkdown(data.content).body
     : '';
@@ -120,7 +108,6 @@ export default function SkillPreviewModal({
 
         {(data || (error && hasFallback)) && !loading && (
           <>
-            {/* Metadata row */}
             <div className="mb-4 space-y-2">
               {description && (
                 <p className="text-pencil-light">{description}</p>
@@ -135,7 +122,6 @@ export default function SkillPreviewModal({
               </div>
             </div>
 
-            {/* SKILL.md body */}
             {markdownBody && (
               <div className="prose-hand">
                 <Markdown remarkPlugins={[remarkGfm]}>{markdownBody}</Markdown>
@@ -145,13 +131,13 @@ export default function SkillPreviewModal({
         )}
       </div>
 
-      {/* Sticky footer */}
+      {/* Footer */}
       <div className="flex items-center justify-between gap-3 px-6 py-3 border-t-2 border-dashed border-muted bg-surface">
         <p className="font-mono text-xs text-muted-dark truncate min-w-0">
-          {source}
+          {result.source}
         </p>
         <Button
-          onClick={() => onInstall(source, skill)}
+          onClick={() => onInstall(result.source, result.skill)}
           variant="primary"
           size="sm"
           loading={installing}

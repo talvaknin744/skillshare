@@ -14,6 +14,7 @@ import (
 var (
 	previewCache    sync.Map
 	previewCacheTTL = 5 * time.Minute
+	previewCacheMax = 200
 )
 
 type previewCacheEntry struct {
@@ -66,7 +67,7 @@ func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusTooManyRequests, err.Error())
 			return
 		}
-		if strings.Contains(err.Error(), "not found") {
+		if errors.Is(err, search.ErrSkillNotFound) {
 			writeError(w, http.StatusNotFound, err.Error())
 			return
 		}
@@ -74,10 +75,28 @@ func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Store in cache
+	// Evict expired entries and enforce max size
+	now := time.Now()
+	count := 0
+	previewCache.Range(func(k, v any) bool {
+		count++
+		if now.After(v.(*previewCacheEntry).expiresAt) {
+			previewCache.Delete(k)
+			count--
+		}
+		return true
+	})
+	if count >= previewCacheMax {
+		// Over limit after purge — drop all (simple reset)
+		previewCache.Range(func(k, _ any) bool {
+			previewCache.Delete(k)
+			return true
+		})
+	}
+
 	previewCache.Store(cacheKey, &previewCacheEntry{
 		data:      preview,
-		expiresAt: time.Now().Add(previewCacheTTL),
+		expiresAt: now.Add(previewCacheTTL),
 	})
 
 	writeJSON(w, preview)
